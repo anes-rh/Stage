@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Filter, ChevronDown, User, FileText, X, CheckCircle, XCircle, Clock, AlertCircle, Upload, BookOpen, Building, Calendar, Briefcase } from 'lucide-react';
+import { Search, Filter, ChevronDown, User, FileText, X, CheckCircle, XCircle, Clock, AlertCircle, Upload, BookOpen, Building, Calendar, Briefcase, MessageSquare } from 'lucide-react';
 import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { conventionAPI } from '../../utils/conventionAPI';
 import { stageAPI } from '../../utils/stageAPI';
@@ -27,6 +27,10 @@ export default function Conventions() {
   const [loadingStatus, setLoadingStatus] = useState({});
   const fileInputRef = useRef(null);
   
+  const [commentaire, setCommentaire] = useState('');
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [actionType, setActionType] = useState(null);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -35,11 +39,11 @@ export default function Conventions() {
         setCurrentUser(userData);
         
         const allConventions = await conventionAPI.getAllConventions();
-        const conventionsFiltrees = allConventions.filter(convention => 
+        {/*const conventionsFiltrees = allConventions.filter(convention => 
           convention.membreDirectionId === userData.id
         );
-        setConventions(conventionsFiltrees);
-        
+        setConventions(conventionsFiltrees);*/}
+        setConventions(allConventions);
         const departements = await departementApi.getAllDepartements();
         const departmentsMap = {};
         departements.forEach(dept => {
@@ -54,7 +58,7 @@ export default function Conventions() {
         });
         setDomainesDetails(domainesMap);
         
-        const stageIds = [...new Set(conventionsFiltrees.map(conv => conv.stageId))];
+        const stageIds = [...new Set(allConventions.map(conv => conv.stageId))];
         const stageDetailsMap = {};
         const encadreursMap = {};
         const stagiairesMap = {};
@@ -260,7 +264,58 @@ export default function Conventions() {
       setLoadingStatus(prev => ({ ...prev, [id]: false }));
     }
   };
-
+  const openCommentModal = (id, type) => {
+    setActiveConventionId(id);
+    setActionType(type);
+    setCommentaire('');
+    setShowCommentModal(true);
+  };
+  
+  const handleConfirmAction = async () => {
+    if (!activeConventionId || !actionType) return;
+    
+    try {
+      setLoadingStatus(prev => ({ ...prev, [activeConventionId]: true }));
+      
+      if (actionType === 'accept') {
+        await conventionAPI.updateConvention(activeConventionId, {
+          Status: 'Accepte',
+          Commentaire: commentaire
+        });
+        
+        setConventions(prevConventions => 
+          prevConventions.map(convention => 
+            convention.id === activeConventionId ? { ...convention, status: 1, commentaire } : convention
+          )
+        );
+        
+        setSuccess(`La convention #${activeConventionId} a été acceptée avec succès.`);
+      } else {
+        await conventionAPI.updateConvention(activeConventionId, {
+          Status: 'Refuse',
+          Commentaire: commentaire
+        });
+        
+        setConventions(prevConventions => 
+          prevConventions.map(convention => 
+            convention.id === activeConventionId ? { ...convention, status: 2, commentaire } : convention
+          )
+        );
+        
+        setSuccess(`La convention #${activeConventionId} a été rejetée avec succès.`);
+      }
+      
+      setShowCommentModal(false);
+      setTimeout(() => {
+        setSuccess('');
+      }, 5000);
+    } catch (err) {
+      console.error(`Erreur lors du traitement de la convention ${activeConventionId}:`, err);
+      setError(`Impossible de traiter la convention #${activeConventionId}.`);
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [activeConventionId]: false }));
+    }
+  };
   const conventionsFiltrees = conventions.filter(convention => {
     const statusMap = {
       'en_attente': 0,
@@ -594,31 +649,43 @@ export default function Conventions() {
                         </button>
                       </div>
                     </div>
+                    {convention.commentaire && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-start text-sm text-gray-600">
+                          <div className="flex-shrink-0 w-6 mt-0.5">
+                            <MessageSquare className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Commentaire:</span>
+                            <p className="text-gray-600 mt-1">{convention.commentaire}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
                   <div className="flex justify-between pt-3 border-t border-gray-100">
                     <span className="text-xs text-gray-500">
                       Crée le {formatDate(convention.dateDepot)}
                     </span>
                     <div className="flex space-x-2">
-                      {convention.status === 0 && (
-                        <>
-                          <button 
-                            disabled={loadingStatus[convention.id]}
-                            className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[convention.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition-colors`}
-                            onClick={() => accepterConvention(convention.id)}
-                          >
-                            {loadingStatus[convention.id] ? 'Traitement...' : 'Accepter'}
-                          </button>
-                          <button 
-                            disabled={loadingStatus[convention.id]}
-                            className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[convention.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-700 hover:bg-red-100'} transition-colors`}
-                            onClick={() => refuserConvention(convention.id)}
-                          >
-                            {loadingStatus[convention.id] ? 'Traitement...' : 'Rejeter'}
-                          </button>
-                        </>
-                      )}
+                    {convention.status === 0 && (
+  <>
+    <button 
+      disabled={loadingStatus[convention.id]}
+      className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[convention.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition-colors`}
+      onClick={() => openCommentModal(convention.id, 'accept')}
+    >
+      {loadingStatus[convention.id] ? 'Traitement...' : 'Accepter'}
+    </button>
+    <button 
+      disabled={loadingStatus[convention.id]}
+      className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[convention.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-700 hover:bg-red-100'} transition-colors`}
+      onClick={() => openCommentModal(convention.id, 'refuse')}
+    >
+      {loadingStatus[convention.id] ? 'Traitement...' : 'Rejeter'}
+    </button>
+  </>
+)}
                     </div>
                   </div>
                 </div>
@@ -642,6 +709,48 @@ export default function Conventions() {
           </div>
         )}
       </div>
+      {showCommentModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        {actionType === 'accept' ? 'Accepter' : 'Rejeter'} la convention
+      </h3>
+      
+      <div className="mb-4">
+        <label htmlFor="commentaire" className="block text-sm font-medium text-gray-700 mb-1">
+          Commentaire (facultatif)
+        </label>
+        <textarea
+          id="commentaire"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+          rows="4"
+          placeholder="Ajoutez un commentaire explicatif..."
+          value={commentaire}
+          onChange={(e) => setCommentaire(e.target.value)}
+        ></textarea>
+      </div>
+      
+      <div className="flex justify-end space-x-3">
+        <button
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+          onClick={() => setShowCommentModal(false)}
+        >
+          Annuler
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+            actionType === 'accept' 
+              ? 'bg-green-600 hover:bg-green-700' 
+              : 'bg-red-600 hover:bg-red-700'
+          }`}
+          onClick={handleConfirmAction}
+        >
+          Confirmer
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </MembreDirectionLayout>
   );
 }

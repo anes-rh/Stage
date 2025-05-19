@@ -88,7 +88,7 @@ export default function PageAccueil() {
           <div className="flex justify-between text-xs text-gray-600 mt-2">
             <div className="flex flex-col items-center">
               <div className={`h-3 w-3 rounded-full ${progressValue >= 0 ? 'bg-green-500' : 'bg-gray-300'} mb-0.5`}></div>
-              <span>Dépôt demande de stage</span>
+              <span>Demande de stage</span>
             </div>
             <div className="flex flex-col items-center">
               <div className={`h-3 w-3 rounded-full ${progressValue >= 25 ? 'bg-green-500' : 'bg-gray-300'} mb-0.5`}></div>

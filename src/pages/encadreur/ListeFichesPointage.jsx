@@ -4,6 +4,7 @@ import { Search, AlertCircle, X, FileText, Calendar, User } from 'lucide-react';
 import EncadreurLayout from '../../components/layout/EncadreurLayout';
 import { fichePointageAPI } from '../../utils/fichePointageAPI';
 import { encadreurAPI } from '../../utils/encadreurAPI';
+import { stageAPI } from '../../utils/stageAPI';
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Date inconnue';
@@ -48,6 +49,50 @@ const FicheCard = ({ fiche }) => (
   </div>
 );
 
+const StageGroupCard = ({ stage, fiches }) => (
+  <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6">
+    <div className="p-4 bg-gray-50 border-b border-gray-200">
+      <h3 className="font-semibold text-lg text-gray-800">
+        {"Stage #" + (fiches[0]?.stageId || "")}
+      </h3>
+      <div className="text-sm text-gray-600 mt-1">
+        {stage?.structureAccueil || fiches[0]?.structureAccueil || "Structure non spécifiée"}
+      </div>
+      <div className="text-sm text-gray-600 mt-1">
+        <Calendar className="h-3 w-3 inline mr-1 text-gray-400" />
+        {formatDate(fiches[0]?.dateDebutStage)} - {formatDate(fiches[0]?.dateFinStage)}
+      </div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      {fiches.map(fiche => (
+        <div key={fiche.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h3 className="font-semibold text-base text-gray-800">Fiche #{fiche.id}</h3>
+                <div className="flex items-center mt-1">
+                  <User className="h-4 w-4 text-gray-400 mr-2" />
+                  <h4 className="text-sm font-medium text-gray-700">{fiche.nomPrenomStagiaire}</h4>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-gray-100">
+              <Link 
+                to={`/encadreur/fiche-pointage/${fiche.id}`}
+                className="flex items-center px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Voir détails
+              </Link>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const EmptyState = ({ noFiches, hasSearch }) => (
   <div className="bg-white rounded-lg shadow-sm p-8 text-center">
     <div className="text-gray-400 mb-3">
@@ -87,6 +132,7 @@ const SearchBar = ({ filtreSearch, setFiltreSearch }) => (
 
 export default function ListeFichesPointage() {
   const [fichePointages, setFichePointages] = useState([]);
+  const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtreSearch, setFiltreSearch] = useState('');
@@ -98,9 +144,12 @@ export default function ListeFichesPointage() {
         const userData = await encadreurAPI.getCurrentUser();
         const fichesData = await fichePointageAPI.getFichesPointageByEncadreur(userData.id);
         setFichePointages(fichesData);
+        
+        const stagesData = await stageAPI.getAllStages();
+        setStages(stagesData);
       } catch (err) {
-        console.error("Erreur lors du chargement des fiches de pointage:", err);
-        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des fiches de pointage.");
+        console.error("Erreur lors du chargement des données:", err);
+        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des données.");
       } finally {
         setLoading(false);
       }
@@ -117,9 +166,26 @@ export default function ListeFichesPointage() {
       fiche.nomPrenomStagiaire?.toLowerCase().includes(searchLower) ||
       fiche.structureAccueil?.toLowerCase().includes(searchLower) ||
       fiche.nomQualitePersonneChargeSuivi?.toLowerCase().includes(searchLower) ||
-      fiche.themeStage?.toLowerCase().includes(searchLower)
+      stages.find(s => s.id === fiche.stageId)?.themeStage?.toLowerCase().includes(searchLower)
     );
-  }, [fichePointages, filtreSearch]);
+  }, [fichePointages, filtreSearch, stages]);
+
+  const fichesGroupeesByStage = useMemo(() => {
+    const groupedFiches = {};
+    
+    fichesFiltrees.forEach(fiche => {
+      if (!groupedFiches[fiche.stageId]) {
+        groupedFiches[fiche.stageId] = [];
+      }
+      groupedFiches[fiche.stageId].push(fiche);
+    });
+    
+    return groupedFiches;
+  }, [fichesFiltrees]);
+
+  const findStage = (stageId) => {
+    return stages.find(s => s.id === stageId);
+  };
 
   if (loading) {
     return (
@@ -158,8 +224,14 @@ export default function ListeFichesPointage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {fichesFiltrees.length > 0 ? (
-            fichesFiltrees.map((fiche) => <FicheCard key={fiche.id} fiche={fiche} />)
+          {Object.keys(fichesGroupeesByStage).length > 0 ? (
+            Object.entries(fichesGroupeesByStage).map(([stageId, fiches]) => (
+              <StageGroupCard 
+                key={stageId} 
+                stage={findStage(parseInt(stageId))} 
+                fiches={fiches} 
+              />
+            ))
           ) : (
             <EmptyState 
               noFiches={fichePointages.length === 0} 

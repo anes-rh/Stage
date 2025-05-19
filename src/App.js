@@ -22,7 +22,14 @@ import DemandesStage from './pages/membredirection/DemandesStage';
 import DemandesAccord from './pages/membredirection/DemandesAccord';
 import Conventions from './pages/membredirection/Conventions';
 import Stages from './pages/membredirection/Stages';
-
+import ListeFichesPointageDirecteur from './pages/membredirection/ListeFichesPointageDirecteur';
+import FichePointageDirecteur from './pages/membredirection/FichePointageDirecteur';
+import ListeFichesEvaluationDirecteur from './pages/membredirection/ListeFichesEvaluationDirecteur';
+import FicheEvaluationDirecteur from './pages/membredirection/FicheEvaluationDirecteur';
+import ListeFichesEvaluationEncadreurDirecteur from './pages/membredirection/ListeFichesEvaluationEncadreurDirecteur';
+import FicheEvaluationEncadreur from './pages/membredirection/FicheEvaluationEncadreur';
+import ListeDemandesDepotMemoire1 from './pages/membredirection/ListeDemandesDepotMemoire1';
+import DepotMemoire1 from './pages/membredirection/DepotMemoire1';
 import MembreDirectionParametres from './pages/membredirection/MembreDirectionParametres';
 //encadreur
 import AccueilEncadreur from './pages/encadreur/AccueilEncadreur';
@@ -31,6 +38,8 @@ import FichePointage from './pages/encadreur/FichePointage';
 import ListeFichesPointage from './pages/encadreur/ListeFichesPointage';
 import FichesEvaluation from './pages/encadreur/FichesEvaluation';
 import ListeFichesEvaluation from './pages/encadreur/ListeFichesEvaluation';
+import ListeDemandesDepotMemoire from './pages/encadreur/ListeDemandesDepotMemoire';
+import DemandesDepotMemoire from './pages/encadreur/DemandesDepotMemoire';
 import EncadreurParametres from './pages/encadreur/EncadreurParametres';
 //chef de département
 import AccueilChefDepartement from './pages/chefdepartement/AccueilChefDepartement';
@@ -191,6 +200,71 @@ function App() {
     </AuthGuard>
   } 
 />
+<Route 
+  path="/membredirection/fiches-pointage1/:id" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <FichePointageDirecteur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/fiches-pointage1" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <ListeFichesPointageDirecteur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/fiches-evaluation1/:id" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <FicheEvaluationDirecteur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/fiches-evaluation1" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <ListeFichesEvaluationDirecteur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/fiches-evaluation2/:id" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <FicheEvaluationEncadreur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/fiches-evaluation2" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <ListeFichesEvaluationEncadreurDirecteur />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/Demandes-Depot-Memoire1" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <ListeDemandesDepotMemoire1 />
+    </AuthGuard>
+  } 
+/>
+<Route 
+  path="/membredirection/Demandes-Depot-Memoire1/:id" 
+  element={
+    <AuthGuard requiredRole="MembreDirection">
+      <DepotMemoire1 />
+    </AuthGuard>
+  } 
+/>
+
           <Route 
             path="/membredirection/parametres" 
             element={
@@ -307,6 +381,23 @@ function App() {
     </AuthGuard> 
   } 
 />
+<Route 
+  path="/encadreur/Demandes-Depot-Memoire" 
+  element={ 
+    <AuthGuard requiredRole="Encadreur"> 
+      <ListeDemandesDepotMemoire/> 
+    </AuthGuard> 
+  } 
+/>
+<Route 
+  path="/encadreur/Demandes-Depot-Memoire/:id" 
+  element={ 
+    <AuthGuard requiredRole="Encadreur"> 
+      <DemandesDepotMemoire /> 
+    </AuthGuard> 
+  } 
+/>
+
           <Route 
             path="/encadreur/parametres" 
             element={

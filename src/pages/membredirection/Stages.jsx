@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Filter, ChevronDown, User, X, CheckCircle, XCircle, Clock, 
   AlertCircle, Calendar, Building, BookOpen, Briefcase, Clipboard, Users, 
-  BarChart2, ChevronRight } from 'lucide-react';
+  BarChart2, ChevronRight, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { stageAPI } from '../../utils/stageAPI';
 import { departementApi } from '../../services/departementApi';
 import { encadreurAPI } from '../../utils/encadreurAPI';
 import { themesAPI } from '../../utils/ThemeApi';
 import { stagiaireAPI } from '../../utils/stagiaireAPI';
+import { fichePointageAPI } from '../../utils/fichePointageAPI';
 
 // Components
 const LoadingState = () => (
@@ -100,16 +102,6 @@ const FilterDropdown = ({ value, onChange, isOpen, toggleOpen }) => (
   </div>
 );
 
-const DocumentsTab = () => (
-  <div className="p-6 text-center">
-    <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-3" />
-    <h3 className="font-medium text-lg text-gray-800 mb-2">Fiches non disponibles</h3>
-    <p className="text-gray-600">
-      Les fiches seront disponibles une fois que la convention sera acceptée.
-    </p>
-  </div>
-);
-
 // Main Component
 export default function Stages() {
   const [filtreStatus, setFiltreStatus] = useState('tous');
@@ -127,6 +119,7 @@ export default function Stages() {
   const [encadreurs, setEncadreurs] = useState([]);
   const [themes, setThemes] = useState([]);
   const [stagiaires, setStagiaires] = useState([]);
+  const [fichesPointage, setFichesPointage] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,14 +128,15 @@ export default function Stages() {
       
       try {
         // Fetch all data in parallel
-        const [stagesData, departementsData, domainesData, encadreursData, themesData, stagiairesData] = 
+        const [stagesData, departementsData, domainesData, encadreursData, themesData, stagiairesData, fichesPointageData] = 
           await Promise.all([
             stageAPI.getAllStages(),
             departementApi.getAllDepartements(),
             departementApi.getAllDomaines(),
             encadreurAPI.getAllEncadreurs(),
             themesAPI.getAllThemes(),
-            stagiaireAPI.getAllStagiaires()
+            stagiaireAPI.getAllStagiaires(),
+            fichePointageAPI.getAllFichesPointage()
           ]);
         
         // Set all state at once to avoid multiple re-renders
@@ -152,6 +146,7 @@ export default function Stages() {
         setEncadreurs(encadreursData);
         setThemes(themesData);
         setStagiaires(stagiairesData);
+        setFichesPointage(fichesPointageData);
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
         setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des données.");
@@ -213,7 +208,11 @@ export default function Stages() {
       const stagiairesEnrichis = Array.isArray(stage.stagiaires) 
         ? stage.stagiaires.map(stagiaireBasic => {
             const stagiaireComplet = stagiaires.find(s => s.id === stagiaireBasic.id);
-            return stagiaireComplet || stagiaireBasic;
+            const fichePointageStagiaire = fichesPointage.find(f => f.stagiaireId === stagiaireBasic.id);
+            return {
+              ...(stagiaireComplet || stagiaireBasic),
+              fichePointageId: fichePointageStagiaire?.id
+            };
           })
         : [];
       
@@ -230,7 +229,7 @@ export default function Stages() {
         stagiaires: stagiairesEnrichis
       };
     });
-  }, [stages, encadreurs, departements, domaines, themes, stagiaires]);
+  }, [stages, encadreurs, departements, domaines, themes, stagiaires, fichesPointage]);
 
   const stagesFiltres = useMemo(() => {
     return stagesEnrichis.filter(stage => {
@@ -275,7 +274,7 @@ export default function Stages() {
     setExpandedStageId(prevId => {
       if (prevId === stageId) return null;
       
-      setActiveTab(prev => ({ ...prev, [stageId]: prev[stageId] || 'pointage' }));
+      setActiveTab(prev => ({ ...prev, [stageId]: prev[stageId] || 'details' }));
       return stageId;
     });
   }, []);
@@ -338,6 +337,82 @@ export default function Stages() {
     setShowFilterDropdown(prev => !prev);
   }, []);
 
+  const renderStageDetails = useCallback((stage) => {
+    return (
+      <div className="p-6">
+        <div>
+          <h3 className="text-lg font-medium text-gray-800 mb-3">Stagiaires et Fiches</h3>
+          {stage.stagiaires && stage.stagiaires.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Établissement</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {stage.stagiaires.map((stagiaire) => (
+                    <tr key={stagiaire.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
+                            <User className="h-4 w-4 text-gray-500" />
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">{stagiaire.prenom} {stagiaire.nom}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">{stagiaire.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">{stagiaire.universite || "Non spécifié"}</div>
+                        <div className="text-xs text-gray-500">{stagiaire.specialite || "Spécialité non spécifiée"}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link 
+                          to={`/membredirection/fiches-pointage1/${stagiaire.fichePointageId || ''}`}
+                          className="text-green-600 hover:text-green-800 flex items-center mr-4"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Fiche de pointage
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link 
+                          to={`/membre-direction/fiches-evaluation/${stagiaire.id || ''}`}
+                          className="text-green-600 hover:text-green-800 flex items-center"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Fiche d'évaluation stagiaire
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link 
+                          to={`/membre-direction/fiches-evaluation/${stagiaire.id || ''}`}
+                          className="text-green-600 hover:text-green-800 flex items-center"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Fiche d'évaluation encadreur
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 italic">Aucun stagiaire associé à ce stage</div>
+          )}
+        </div>
+      </div>
+    );
+  }, []);
+
   if (loading) {
     return (
       <MembreDirectionLayout defaultActivePage="stages">
@@ -376,7 +451,6 @@ export default function Stages() {
           {stagesFiltres.map((stage) => {
             const statusInfo = getStatusDisplay(stage.statut);
             const isExpanded = expandedStageId === stage.id;
-            const currentTab = activeTab[stage.id] || 'pointage';
             
             return (
               <div key={stage.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -480,36 +554,8 @@ export default function Stages() {
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-200">
-                    <div className="bg-gray-50 px-5 py-3 flex overflow-x-auto">
-                      {['pointage', 'evaluationStagiaire', 'evaluationEncadreur', 'synthese'].map(tab => {
-                        const tabConfig = {
-                          pointage: { icon: <Clipboard className="h-4 w-4 mr-1.5" />, label: 'Fiches de pointage' },
-                          evaluationStagiaire: { icon: <Users className="h-4 w-4 mr-1.5" />, label: 'Évaluations stagiaires' },
-                          evaluationEncadreur: { icon: <Briefcase className="h-4 w-4 mr-1.5" />, label: 'Évaluations encadreur' },
-                          synthese: { icon: <BarChart2 className="h-4 w-4 mr-1.5" />, label: 'Synthèse' }
-                        };
-                        
-                        return (
-                          <button
-                            key={tab}
-                            className={`px-4 py-2 text-sm font-medium rounded-md mr-2 whitespace-nowrap ${
-                              currentTab === tab 
-                                ? 'bg-white text-green-700 shadow-sm' 
-                                : 'bg-transparent text-gray-600 hover:bg-white/50'
-                            }`}
-                            onClick={() => setActiveTab(prev => ({...prev, [stage.id]: tab}))}
-                          >
-                            <div className="flex items-center">
-                              {tabConfig[tab].icon}
-                              {tabConfig[tab].label}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <DocumentsTab />
+                  <div className="border-t border-gray-200 bg-gray-50">
+                    {renderStageDetails(stage)}
                   </div>
                 )}
               </div>

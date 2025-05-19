@@ -420,9 +420,6 @@ export default function CreationEncadreurs() {
                               <div className="flex items-center text-gray-600">
                                 <span className="text-sm font-medium">{encadreur.departement?.nom || '—'} / {encadreur.domaine?.nom || '—'}</span>
                               </div>
-                              <div className="flex items-center text-gray-600">
-                                <span className="text-sm">Stagiaires: {encadreur.nbrStagiaires || 0}/{encadreur.stagiaireMax || 3}</span>
-                              </div>
                             </div>
                           </div>
                           <div className="mt-4 flex justify-end space-x-3">
@@ -447,7 +444,7 @@ export default function CreationEncadreurs() {
                               {encadreur.estDisponible ? 'Rendre indisponible' : 'Rendre disponible'}
                             </button>
                             <button
-                              className="py-2 px-4 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium flex items-center transition-colors"
+                              className="py-2 px-4 rounded-lg bg-green-50 text-green-600 hover:bg-blue-100 text-sm font-medium flex items-center transition-colors"
                               onClick={() => openEditModal(encadreur)}
                             >
                               <Edit className="h-4 w-4 mr-1" />

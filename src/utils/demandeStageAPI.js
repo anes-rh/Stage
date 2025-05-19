@@ -49,6 +49,7 @@ export const demandeStageAPI = {
     try {
       const dataToSend = {
         statut: updateData.statut,
+        commentaire: updateData.commentaire || "",
         ...(updateData.cheminFichier && { cheminFichier: updateData.cheminFichier })
       };
       const response = await api.put(`/DemandeDeStage/${id}`, dataToSend);

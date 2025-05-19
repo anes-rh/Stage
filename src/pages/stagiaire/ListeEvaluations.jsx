@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Clipboard, 
-  ChevronRight, 
-  AlertCircle, 
-  FileText,
-  Calendar,
-  User,
-  Clock,
-  Users
-} from 'lucide-react';
+import { Clipboard, ChevronRight, AlertCircle, FileText, Calendar, User, Clock, Info } from 'lucide-react';
 import { ficheEvaluationEncadreurAPI } from '../../utils/ficheEvaluationEncadreurAPI';
 import { stagiaireAPI } from '../../utils/stagiaireAPI';
 import { stageAPI } from '../../utils/stageAPI';
@@ -30,45 +21,54 @@ export default function ListeEvaluations() {
         const stagiaireData = await stagiaireAPI.getCurrentUser();
         setStagiaire(stagiaireData);
         
+        if (!stagiaireData || !stagiaireData.id) {
+          setError("Impossible de récupérer les informations du stagiaire connecté.");
+          return;
+        }
+        let stagiaireStages = [];
+        
         if (stagiaireData.stageId) {
-          const stageData = await stageAPI.getStage(stagiaireData.stageId);
-          setStages([stageData]);
-          
-          if (stageData && stageData.encadreurId) {
-            try {
-              const ficheData = await ficheEvaluationEncadreurAPI.getFicheEvaluationByStage(stageData.id);
-              setEvaluations(Array.isArray(ficheData) ? ficheData : [ficheData].filter(Boolean));
-            } catch (err) {
-              console.log("Pas d'évaluation trouvée pour ce stage");
-              setEvaluations([]);
-            }
+          try {
+            const stageData = await stageAPI.getStage(stagiaireData.stageId);
+            stagiaireStages = [stageData];
+          } catch (err) {
+            console.error("Erreur lors de la récupération du stage:", err);
           }
         } else {
-          const allStages = await stageAPI.getAllStages();
-          const stagiaireStages = allStages.filter(stage => 
-            stage.stagiaires && stage.stagiaires.some(s => s.id === stagiaireData.id)
-          );
-          
-          setStages(stagiaireStages);
-          
-          if (stagiaireStages.length > 0) {
-            const allEvaluations = [];
-            
-            for (const stage of stagiaireStages) {
-              if (stage.encadreurId) {
-                try {
-                  const ficheData = await ficheEvaluationEncadreurAPI.getFicheEvaluationByStage(stage.id);
-                  if (ficheData) {
-                    allEvaluations.push(Array.isArray(ficheData) ? [...ficheData] : ficheData);
-                  }
-                } catch (err) {
-                  console.log(`Pas d'évaluation trouvée pour le stage ${stage.id}`);
-                }
-              }
-            }
-            
-            setEvaluations(allEvaluations.flat().filter(Boolean));
+          try {
+            const allStages = await stageAPI.getAllStages();
+            stagiaireStages = allStages.filter(stage => 
+              stage.stagiaires && stage.stagiaires.some(s => s.id === stagiaireData.id)
+            );
+          } catch (err) {
+            console.error("Erreur lors de la récupération des stages:", err);
           }
+        }
+        
+        setStages(stagiaireStages);
+
+        try {
+          const allFiches = await ficheEvaluationEncadreurAPI.getAllFichesEvaluationEncadreur();
+          const stagiaireEvaluations = allFiches.filter(fiche => 
+            fiche.stagiaireId === stagiaireData.id || 
+            (fiche.nomPrenomStagiaireEvaluateur && 
+             fiche.nomPrenomStagiaireEvaluateur.includes(`${stagiaireData.nom} ${stagiaireData.prenom}`))
+          );
+          const evaluationsByEncadreur = new Map();
+          
+          stagiaireEvaluations.forEach(evaluation => {
+            const encadreurId = evaluation.encadreurId;
+            const existingEval = evaluationsByEncadreur.get(encadreurId);
+            if (!existingEval || new Date(evaluation.dateCreation) > new Date(existingEval.dateCreation)) {
+              evaluationsByEncadreur.set(encadreurId, evaluation);
+            }
+          });
+          const uniqueEvaluations = Array.from(evaluationsByEncadreur.values());
+          setEvaluations(uniqueEvaluations);
+          
+        } catch (err) {
+          console.error("Erreur lors de la récupération des évaluations:", err);
+          setEvaluations([]);
         }
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
@@ -95,16 +95,16 @@ export default function ListeEvaluations() {
   return (
     <DashboardLayout defaultActivePage="evaluations">
       <div className="max-w-5xl mx-auto px-4 py-4">
-        {/* Message d'alerte pour la concertation entre stagiaires */}
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+        {/* Message d'information sur les évaluations individuelles */}
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start">
-            <Users className="h-5 w-5 mr-3 text-amber-500 mt-0.5 flex-shrink-0" />
+            <Info className="h-5 w-5 mr-3 text-blue-500 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="font-medium text-amber-800">Concertation requise entre stagiaires</h3>
-              <p className="text-amber-700 text-sm mt-1">
-                Nous vous rappelons que cette fiche d'évaluation doit être remplie en concertation avec les autres stagiaires de votre groupe. 
-                Veuillez prendre le temps d'échanger vos impressions et d'établir une évaluation collective qui reflète fidèlement l'expérience partagée. 
-                Cette démarche collaborative garantira une évaluation équilibrée et constructive de votre encadreur.
+              <h3 className="font-medium text-blue-800">Évaluation personnelle de votre encadreur</h3>
+              <p className="text-blue-700 text-sm mt-1">
+                Vous disposez maintenant de votre propre fiche d'évaluation pour noter votre encadreur de stage. Chaque stagiaire 
+                complète individuellement sa propre évaluation. Veillez à donner une appréciation objective et constructive pour
+                contribuer à l'amélioration continue des pratiques d'encadrement.
               </p>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function ListeEvaluations() {
              Évaluation d'Encadreur
             </h1>
             <p className="text-gray-500 text-sm mt-1">
-              Consultez la  fiche d'évaluation pour votre encadreur de stage
+              Consultez et complétez votre fiche d'évaluation pour votre encadreur de stage
             </p>
           </div>
 
@@ -136,7 +136,7 @@ export default function ListeEvaluations() {
                     <div>
                       <h3 className="font-medium text-gray-800 mb-1 flex items-center">
                         <FileText className="h-4 w-4 mr-2 text-green-600" />
-                        Évaluation de {evaluation.nomPrenomEncadreur}
+                        Votre évaluation de {evaluation.nomPrenomEncadreur}
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                         <div className="flex items-center text-xs text-gray-500">
@@ -157,7 +157,7 @@ export default function ListeEvaluations() {
                       onClick={() => navigate(`/stagiaire/evaluations/${evaluation.id}`)}
                       className="flex items-center px-3 py-1.5 text-xs font-medium rounded border border-green-600 bg-white text-green-600 hover:bg-green-50"
                     >
-                      <span>Consulter</span>
+                      <span>Compléter</span>
                       <ChevronRight className="h-3.5 w-3.5 ml-1" />
                     </button>
                   </div>
@@ -171,7 +171,7 @@ export default function ListeEvaluations() {
                 <h3 className="text-lg font-medium text-gray-700">Aucune évaluation disponible</h3>
               </div>
               <p className="text-gray-500 text-sm max-w-md mx-auto">
-                Vous n'avez pas encore d'évaluations à consulter pour vos stages en cours.
+                Vous n'avez pas encore d'évaluation à compléter pour votre encadreur de stage.
               </p>
             </div>
           ) : (
@@ -181,7 +181,7 @@ export default function ListeEvaluations() {
                 <h3 className="text-lg font-medium text-gray-700">Aucun stage trouvé</h3>
               </div>
               <p className="text-gray-500 text-sm max-w-md mx-auto">
-                Vous n'avez pas encore de stage attribué. Vous pourrez consulter les évaluations une fois que vous aurez un stage en cours.
+                Vous n'avez pas encore de stage attribué. Vous pourrez compléter une évaluation une fois que vous aurez un stage en cours.
               </p>
             </div>
           )}

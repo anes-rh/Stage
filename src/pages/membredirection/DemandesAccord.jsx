@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronDown, User, X, CheckCircle, XCircle, Clock, AlertCircle, BookOpen, Building } from 'lucide-react';
+import { Search, Filter, ChevronDown, User, X, CheckCircle, XCircle, Clock, AlertCircle, BookOpen, Building, MessageSquare } from 'lucide-react';
 import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { demandeAccordAPI } from '../../utils/demandeAccordAPI';
 import { departementApi } from '../../services/departementApi';
@@ -52,6 +52,10 @@ export default function DemandesAccord() {
   const [departementAssigne, setDepartementAssigne] = useState(false);
   const [domaineAssigne, setDomaineAssigne] = useState(false);
   const [themeDetails, setThemeDetails] = useState({});
+
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusAction, setStatusAction] = useState({ id: null, status: null });
+  const [commentaire, setCommentaire] = useState('');
 
   useEffect(() => { fetchInitialData(); }, []);
   
@@ -114,12 +118,13 @@ export default function DemandesAccord() {
         status: typeof demande.status === 'string' ? STATUS_CONVERSION[demande.status] : demande.status
       }));
       
-      const demandesFiltrees = demandesAccordWithNumericStatus.filter(demande => {
+      {/*const demandesFiltrees = demandesAccordWithNumericStatus.filter(demande => {
         const demandeStage = demandesStageData.find(ds => ds.id === demande.demandeStageId);
         return demandeStage && demandeStage.membreDirection && demandeStage.membreDirection.id === userData.id;
-      });
+      });*/}
       
-      setDemandesAccord(demandesFiltrees);
+      //setDemandesAccord(demandesFiltrees);
+      setDemandesAccord(demandesAccordWithNumericStatus);
       setDemandesStage(demandesStageData);
       setDepartements(departementsData);
       setDomaines(domainesData);
@@ -140,24 +145,31 @@ export default function DemandesAccord() {
   };
 
   const updateDemandeStatus = async (id, newStatus) => {
+    // Pour l'ouverture du modal
+    if (!showStatusModal) {
+      setStatusAction({ id, status: newStatus });
+      setCommentaire('');
+      setShowStatusModal(true);
+      return;
+    }
+  
     try {
       setError('');
       setSuccessMessage('');
-      
-      // Vérifie si le statut a déjà été modifié (n'est plus à 0 ou 3)
+      setShowStatusModal(false);
+  
       const demande = demandesAccord.find(d => d.id === id);
       if (demande && (demande.status === 1 || demande.status === 2)) {
         setError(`Le statut de la demande #${id} a déjà été définitivement modifié et ne peut plus être changé.`);
         return;
       }
       
-      await demandeAccordAPI.updateStatus(id, newStatus);
+      await demandeAccordAPI.updateStatus(id, newStatus, commentaire);
       setDemandesAccord(prevDemandes => 
-        prevDemandes.map(demande => demande.id === id ? { ...demande, status: newStatus } : demande)
+        prevDemandes.map(demande => demande.id === id ? { ...demande, status: newStatus, commentaire: commentaire } : demande)
       );
       setSuccessMessage(`Le statut de la demande #${id} a été mis à jour avec succès.`);
-      
-      // Ferme le message de succès après 5 secondes
+
       setTimeout(() => {
         setSuccessMessage('');
       }, 5000);
@@ -165,7 +177,13 @@ export default function DemandesAccord() {
       setError(`Impossible de mettre à jour le statut de la demande #${id}: ${err.message || err}`);
     }
   };
-
+  const handleStatusSubmit = (e) => {
+    e.preventDefault();
+    if (statusAction.id && statusAction.status !== null) {
+      updateDemandeStatus(statusAction.id, statusAction.status);
+    }
+  };
+  
   const assignChefDepartement = async () => {
     if (!selectedDemande || !selectedChefDepartement) return;
     try {
@@ -174,8 +192,6 @@ export default function DemandesAccord() {
       await demandeAccordAPI.assignChefDepartement(selectedDemande.id, selectedChefDepartement.id);
       setSuccessMessage(`Chef de département ${selectedChefDepartement.prenom} ${selectedChefDepartement.nom} assigné avec succès!`);
       await fetchInitialData();
-      
-      // Ferme le message de succès après 5 secondes
       setTimeout(() => {
         setSuccessMessage('');
       }, 5000);
@@ -501,31 +517,44 @@ export default function DemandesAccord() {
                   <div className="space-y-2 mb-3">
                     {formatStagiaires(demande)}
                   </div>
+                  {demande.commentaire && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-start text-sm text-gray-600">
+                          <div className="flex-shrink-0 w-6 mt-0.5">
+                            <MessageSquare className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Commentaire:</span>
+                            <p className="text-gray-600 mt-1">{demande.commentaire}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   <div className="flex justify-between pt-3 border-t border-gray-100">
                     <span className="text-xs text-gray-500">Créée le {formatDate(demande.dateCreation)}</span>
                     <div className="flex space-x-2">
-                      {canChangeStatus(demande) ? (
-                        <>
-                          <button 
-                            className="px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors" 
-                            onClick={() => updateDemandeStatus(demande.id, 1)}
-                          >
-                            Accepter
-                          </button>
-                          <button 
-                            className="px-3 py-1 text-xs font-medium rounded bg-red-50 text-red-700 hover:bg-red-100 transition-colors" 
-                            onClick={() => updateDemandeStatus(demande.id, 2)}
-                          >
-                            Rejeter
-                          </button>
-                          <button 
-                            className="px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors" 
-                            onClick={() => handleModalActions.open(demande)}
-                          >
-                            Compléter
-                          </button>
-                        </>
-                      ) : null}
+                    {canChangeStatus(demande) ? (
+  <>
+    <button 
+      className="px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors" 
+      onClick={() => updateDemandeStatus(demande.id, 1)}
+    >
+      Accepter
+    </button>
+    <button 
+      className="px-3 py-1 text-xs font-medium rounded bg-red-50 text-red-700 hover:bg-red-100 transition-colors" 
+      onClick={() => updateDemandeStatus(demande.id, 2)}
+    >
+      Rejeter
+    </button>
+    <button 
+      className="px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors" 
+      onClick={() => handleModalActions.open(demande)}
+    >
+      Compléter
+    </button>
+  </>
+) : null}
                     </div>
                   </div>
                 </div>
@@ -553,7 +582,7 @@ export default function DemandesAccord() {
       <form onSubmit={handleModalActions.save} className="p-5 overflow-y-auto max-h-[calc(90vh-4rem)]">
         <div className="space-y-5">
           <div className="mb-4">
-            <h4 className="font-medium text-gray-700 mb-2">Chef de département</h4>
+            <h4 className="font-medium text-gray-700 mb-2">Structure d'acceil</h4>
             <div className="mb-4">
               {selectedChefDepartement ? (
                 <div className="flex items-center space-x-2 p-3 border rounded-md bg-green-50">
@@ -575,7 +604,7 @@ export default function DemandesAccord() {
                     type="text"
                     value={chefDepartementSearch}
                     onChange={(e) => setChefDepartementSearch(e.target.value)}
-                    placeholder="Rechercher un chef de département..."
+                    placeholder="Rechercher une structure d'acceuil..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-300"
                   />
                   {filteredChefs.length > 0 && (
@@ -602,7 +631,7 @@ export default function DemandesAccord() {
                 disabled={!selectedChefDepartement}
                 className="px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Assigner le chef de département
+                Assigner la structure d'acceuil
               </button>
             </div>
           </div>
@@ -707,6 +736,56 @@ export default function DemandesAccord() {
         <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-100">
           <button type="button" onClick={handleModalActions.close} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">Annuler</button>
           <button type="submit" className="px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+{showStatusModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+      <div className="p-5 bg-green-50 border-b border-green-100 flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-green-800">
+          {statusAction.status === 1 ? "Accepter" : "Rejeter"} la demande
+        </h3>
+        <button onClick={() => setShowStatusModal(false)} className="text-gray-500 hover:text-gray-700">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <form onSubmit={handleStatusSubmit} className="p-5">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Commentaire {statusAction.status === 2 ? "(obligatoire)" : "(optionnel)"}
+          </label>
+          <textarea
+            value={commentaire}
+            onChange={(e) => setCommentaire(e.target.value)}
+            required={statusAction.status === 2}
+            placeholder={statusAction.status === 1 
+              ? "Ajouter un commentaire (optionnel)" 
+              : "Veuillez justifier le rejet de cette demande"}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-300"
+            rows="4"
+          ></textarea>
+        </div>
+        <div className="flex justify-end space-x-3">
+          <button 
+            type="button" 
+            onClick={() => setShowStatusModal(false)}
+            className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          >
+            Annuler
+          </button>
+          <button 
+            type="submit"
+            className={`px-4 py-2 text-sm font-medium rounded-md text-white ${
+              statusAction.status === 1 
+                ? "bg-green-600 hover:bg-green-700 focus:ring-green-500" 
+                : "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            } focus:outline-none focus:ring-2`}
+          >
+            {statusAction.status === 1 ? "Accepter" : "Rejeter"}
+          </button>
         </div>
       </form>
     </div>

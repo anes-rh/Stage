@@ -97,6 +97,24 @@ export default function EncadreurSidebar({ activePage, setActivePage }) {
     <span>Fiches de pointage</span>
   </button>
 </li>
+<li>
+  <button
+    className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+      activePage === 'Demandes-Depot-Memoire' 
+        ? 'bg-green-50 text-green-700 font-medium shadow-sm' 
+        : 'text-gray-700 hover:bg-gray-50'
+    }`}
+    onClick={() => {
+      setActivePage('Demandes-Depot-Memoire');
+      navigate('/encadreur/Demandes-Depot-Memoire');
+    }}
+  >
+    <BookOpen className={`h-4 w-4 ${activePage === 'Demandes-Depot-Memoire' ? 'text-green-600' : 'text-gray-500'}`} />
+    <span>Demandes-Depot-Memoire</span>
+  </button>
+</li>
+
+
           <li>
   <button
     className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${

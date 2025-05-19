@@ -59,14 +59,24 @@ export const fichePointageAPI = {
   },
   validateFichePointage: async (id, estValide) => {
     try {
-      const response = await api.post(`/FichesPointages/Validate`, {
-        id,
+      // Fixed: Changed from /FichesPointages/Validate to /FichesPointages/{id}/Validate
+      const response = await api.post(`/FichesPointages/${id}/Validate`, {
         estValide
       });
       return response.data;
     } catch (error) {
       console.error(`Erreur validation fiche de pointage ${id}:`, error);
-      throw error;
+      if (error.response) {
+        console.error('Données d\'erreur complètes:', error.response.data);
+        console.error('Statut HTTP:', error.response.status);
+        throw typeof error.response.data === 'string' 
+          ? error.response.data 
+          : (error.response.data.message || JSON.stringify(error.response.data));
+      } else if (error.request) {
+        throw "Le serveur n'a pas répondu. Vérifiez que le backend est en cours d'exécution.";
+      } else {
+        throw error.message || "Une erreur est survenue lors de la validation";
+      }
     }
   },
   getFichesPointageByStagiaire: async (stagiaireId) => {

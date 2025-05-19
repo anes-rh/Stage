@@ -161,6 +161,70 @@ export default function MembreDirectionSidebar({ activePage, setActivePage }) {
     <span>Stages</span>
   </button>
 </li>
+<li>
+  <button
+    className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+      activePage === 'fiches-pointage1' 
+        ? 'bg-green-50 text-green-700 font-medium shadow-sm' 
+        : 'text-gray-700 hover:bg-gray-50'
+    }`}
+    onClick={() => {
+      setActivePage('fiches-pointage1');
+      navigate('/membredirection/fiches-pointage1');
+    }}
+  >
+    <BookOpen className={`h-4 w-4 ${activePage === 'fiches-pointage1' ? 'text-green-600' : 'text-gray-500'}`} />
+    <span>Fiches de pointage</span>
+  </button>
+</li>
+<li>
+  <button
+    className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+      activePage === 'fiches-evaluation1' 
+        ? 'bg-green-50 text-green-700 font-medium shadow-sm' 
+        : 'text-gray-700 hover:bg-gray-50'
+    }`}
+    onClick={() => {
+      setActivePage('fiches-evaluation1');
+      navigate('/membredirection/fiches-evaluation1');
+    }}
+  >
+    <BookOpen className={`h-4 w-4 ${activePage === 'fiches-evaluation1' ? 'text-green-600' : 'text-gray-500'}`} />
+    <span>Fiches d'evaluation stagiaire</span>
+  </button>
+</li>
+<li>
+  <button
+    className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+      activePage === 'fiches-evaluation2' 
+        ? 'bg-green-50 text-green-700 font-medium shadow-sm' 
+        : 'text-gray-700 hover:bg-gray-50'
+    }`}
+    onClick={() => {
+      setActivePage('fiches-evaluation2');
+      navigate('/membredirection/fiches-evaluation2');
+    }}
+  >
+    <BookOpen className={`h-4 w-4 ${activePage === 'fiches-evaluation2' ? 'text-green-600' : 'text-gray-500'}`} />
+    <span>Fiches d'evaluation encadreur</span>
+  </button>
+</li>
+<li>
+  <button
+    className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+      activePage === 'Demandes-Depot-Memoire1' 
+        ? 'bg-green-50 text-green-700 font-medium shadow-sm' 
+        : 'text-gray-700 hover:bg-gray-50'
+    }`}
+    onClick={() => {
+      setActivePage('Demandes-Depot-Memoire1');
+  navigate('/membredirection/Demandes-Depot-Memoire1');
+    }}
+  >
+    <BookOpen className={`h-4 w-4 ${activePage === 'Demandes-Depot-Memoire1' ? 'text-green-600' : 'text-gray-500'}`} />
+    <span>Demandes-Depot-Memoire</span>
+  </button>
+</li>
           <li>
             <button
               className={`flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${

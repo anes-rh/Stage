@@ -95,9 +95,9 @@ export const demandeAccordAPI = {
     }
   },
   
-  updateStatus: async (id, status) => {
+  updateStatus: async (id, status, commentaire) => {
     try {
-      const response = await api.put(`/Demandeaccord/UpdateStatus/${id}`, { status });
+      const response = await api.put(`/Demandeaccord/UpdateStatus/${id}`, { status, commentaire });
       return response.data;
     } catch (error) {
       console.error(`Erreur mise à jour statut demande d'accord ${id}:`, error);

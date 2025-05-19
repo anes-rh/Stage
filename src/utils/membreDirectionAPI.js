@@ -8,8 +8,7 @@ export const membreDirectionAPI = {
         email: membreData.email,
         username: membreData.username,
         telephone: membreData.telephone || '',
-        fonction: membreData.fonction,
-        motDePasse: membreData.motDePasse
+        fonction: membreData.fonction
       };
       const response = await api.post('/MembreDirection', cleanedData);
       return response.data;

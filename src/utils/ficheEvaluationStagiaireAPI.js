@@ -116,6 +116,27 @@ export const ficheEvaluationStagiaireAPI = {
       }
       throw error;
     }
+  },
+  validateFicheEvaluationStagiaire: async (id, estValide) => {
+    try {
+      const response = await api.post(`/FicheEvaluationStagiaire/${id}/Validate`, {
+        estValide
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur validation fiche d'évaluation de stagiaire ${id}:`, error);
+      if (error.response) {
+        console.error('Données d\'erreur complètes:', error.response.data);
+        console.error('Statut HTTP:', error.response.status);
+        throw typeof error.response.data === 'string' 
+          ? error.response.data 
+          : (error.response.data.message || JSON.stringify(error.response.data));
+      } else if (error.request) {
+        throw "Le serveur n'a pas répondu. Vérifiez que le backend est en cours d'exécution.";
+      } else {
+        throw error.message || "Une erreur est survenue lors de la validation";
+      }
+    }
   }
 };
 

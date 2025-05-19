@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, AlertCircle, X, FileText, Calendar, User, Star, Filter, ChevronDown } from 'lucide-react';
-import EncadreurLayout from '../../components/layout/EncadreurLayout';
+import { Link, useLocation } from 'react-router-dom';
+import { Search, AlertCircle, X, FileText, User, Filter, ChevronDown, Star, Calendar } from 'lucide-react';
+import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { ficheEvaluationStagiaireAPI } from '../../utils/ficheEvaluationStagiaireAPI';
-import { encadreurAPI } from '../../utils/encadreurAPI';
 import { stageAPI } from '../../utils/stageAPI';
 
 const formatDate = (dateString) => {
@@ -12,13 +11,80 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('fr-FR', options);
 };
 
-const getScoreColorClass = (score) => {
-  if (score >= 3) return 'bg-green-100 text-green-800';
-  if (score >= 2) return 'bg-yellow-100 text-yellow-800';
-  return 'bg-red-100 text-red-800';
+const FicheCard = ({ fiche, refreshFiches }) => {
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState('');
+
+  const handleValidationToggle = async () => {
+    try {
+      setValidating(true);
+      setValidationError('');
+      
+      await ficheEvaluationStagiaireAPI.validateFicheEvaluationStagiaire(
+        fiche.id, 
+        !fiche.estValide
+      );
+      
+      refreshFiches();
+    } catch (error) {
+      setValidationError(typeof error === 'string' ? error : "Erreur lors de la validation");
+      console.error("Erreur lors de la validation:", error);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="font-semibold text-base text-gray-800">Évaluation #{fiche.id}</h3>
+            <div className="flex items-center mt-1">
+              <User className="h-4 w-4 text-gray-400 mr-2" />
+              <h4 className="text-sm font-medium text-gray-700">{fiche.nomPrenomStagiaire}</h4>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleValidationToggle}
+              disabled={validating}
+              className={`text-xs px-2 py-1 rounded transition-colors ${
+                fiche.estValide 
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+              } ${validating ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {validating ? '...' : (fiche.estValide ? 'Validée' : 'Non validée')}
+            </button>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getScoreColorClass(fiche.scoreMoyen)}`}>
+              <Star className="h-3 w-3 mr-1 fill-current" />
+              {fiche.scoreMoyen.toFixed(1)}/4
+            </span>
+          </div>
+        </div>
+
+        {validationError && (
+          <div className="mb-3 text-xs text-red-600 bg-red-50 p-2 rounded">
+            {validationError}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2 border-t border-gray-100">
+          <Link 
+            to={`/membredirection/fiches-evaluation1/${fiche.id}`}
+            className="flex items-center px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+          >
+            <FileText className="h-3 w-3 mr-1" />
+            Consulter
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const StageGroupCard = ({ stage, fiches }) => (
+const StageGroupCard = ({ stage, fiches, refreshFiches }) => (
   <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mb-6">
     <div className="p-4 bg-gray-50 border-b border-gray-200">
       <h3 className="font-semibold text-lg text-gray-800">
@@ -28,12 +94,12 @@ const StageGroupCard = ({ stage, fiches }) => (
         {stage?.structureAccueil || fiches[0]?.structureAccueil || "Structure non spécifiée"}
       </div>
       <div className="text-sm text-gray-600 mt-1">
-        <FileText className="h-3 w-3 inline mr-1 text-gray-400" />
-        {stage?.themeStage || fiches[0]?.themeStage || "Thème non spécifié"}
+        <Calendar className="h-3 w-3 inline mr-1 text-gray-400" />
+        {formatDate(fiches[0]?.dateDebutStage)} - {formatDate(fiches[0]?.dateFinStage)}
       </div>
       <div className="text-sm text-gray-600 mt-1">
-        <Calendar className="h-3 w-3 inline mr-1 text-gray-400" />
-        {formatDate(stage?.dateDebut)} - {formatDate(stage?.dateFin)}
+        <FileText className="h-3 w-3 inline mr-1 text-gray-400" />
+        {fiches[0]?.themeStage || "Thème non spécifié"}
       </div>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
@@ -48,19 +114,41 @@ const StageGroupCard = ({ stage, fiches }) => (
                   <h4 className="text-sm font-medium text-gray-700">{fiche.nomPrenomStagiaire}</h4>
                 </div>
               </div>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getScoreColorClass(fiche.scoreMoyen)}`}>
-                <Star className="h-3 w-3 mr-1 fill-current" />
-                {fiche.scoreMoyen.toFixed(1)}/4
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      await ficheEvaluationStagiaireAPI.validateFicheEvaluationStagiaire(
+                        fiche.id, 
+                        !fiche.estValide
+                      );
+                      refreshFiches();
+                    } catch (error) {
+                      console.error("Erreur lors de la validation:", error);
+                    }
+                  }}
+                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                    fiche.estValide 
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                  }`}
+                >
+                  {fiche.estValide ? 'Validée' : 'Non validée'}
+                </button>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getScoreColorClass(fiche.scoreMoyen)}`}>
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  {fiche.scoreMoyen.toFixed(1)}/4
+                </span>
+              </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-gray-100">
               <Link 
-                to={`/encadreur/fiches-evaluation/${fiche.id}`}
+                to={`/membredirection/fiches-evaluation1/${fiche.id}`}
                 className="flex items-center px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
               >
                 <FileText className="h-3 w-3 mr-1" />
-                Voir détails
+                Consulter
               </Link>
             </div>
           </div>
@@ -78,7 +166,7 @@ const EmptyState = ({ noFiches, hasSearch }) => (
     <h3 className="text-lg font-medium text-gray-800 mb-1">Aucune fiche d'évaluation trouvée</h3>
     <p className="text-gray-600">
       {noFiches 
-        ? "Vous n'avez pas encore créé de fiches d'évaluation."
+        ? "Il n'y a pas encore de fiches d'évaluation dans le système."
         : "Essayez de modifier vos critères de recherche."
       }
     </p>
@@ -114,7 +202,7 @@ const FilterDropdown = ({ value, onChange, isOpen, toggleOpen }) => (
       className="flex items-center px-4 py-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
     >
       <Filter className="h-4 w-4 mr-2" />
-      <span>Filtrer par score</span>
+      <span>Filtrer par statut</span>
       <ChevronDown className="h-4 w-4 ml-2" />
     </button>
 
@@ -130,70 +218,73 @@ const FilterDropdown = ({ value, onChange, isOpen, toggleOpen }) => (
           Tous
         </button>
         <button 
-          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'excellent' ? 'bg-green-50 text-green-700' : ''}`}
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'valides' ? 'bg-green-50 text-green-700' : ''}`}
           onClick={() => {
-            onChange('excellent');
+            onChange('valides');
             toggleOpen();
           }}
         >
-          Excellent (≥ 3.0)
+          Validées
         </button>
         <button 
-          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'bon' ? 'bg-green-50 text-green-700' : ''}`}
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'non-valides' ? 'bg-green-50 text-green-700' : ''}`}
           onClick={() => {
-            onChange('bon');
+            onChange('non-valides');
             toggleOpen();
           }}
         >
-          Bon (2.0 - 2.9)
-        </button>
-        <button 
-          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'faible' ? 'bg-green-50 text-green-700' : ''}`}
-          onClick={() => {
-            onChange('faible');
-            toggleOpen();
-          }}
-        >
-          À améliorer (&lt; 2.0)
+          Non validées
         </button>
       </div>
     )}
   </div>
 );
 
-export default function ListeFichesEvaluation() {
+const getScoreColorClass = (score) => {
+  if (score >= 3) return 'bg-green-100 text-green-800';
+  if (score >= 2) return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
+};
+
+export default function ListeFichesEvaluationDirecteur() {
   const [fichesEvaluation, setFichesEvaluation] = useState([]);
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtreSearch, setFiltreSearch] = useState('');
-  const [filtreScore, setFiltreScore] = useState('tous');
+  const [filtreValidation, setFiltreValidation] = useState('tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const location = useLocation();
+
+  const fetchFichesEvaluation = async () => {
+    try {
+      setLoading(true);
+      const fichesData = await ficheEvaluationStagiaireAPI.getAllFichesEvaluationStagiaire();
+      setFichesEvaluation(fichesData);
+      
+      const stagesData = await stageAPI.getAllStages();
+      setStages(stagesData);
+      
+      setError('');
+    } catch (err) {
+      console.error("Erreur lors du chargement des fiches d'évaluation:", err);
+      setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des fiches d'évaluation.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const userData = await encadreurAPI.getCurrentUser();
-        setCurrentUser(userData);
-        
-        const fichesData = await ficheEvaluationStagiaireAPI.getFichesEvaluationByEncadreur(userData.id);
-        setFichesEvaluation(fichesData);
-
-        const stagesData = await stageAPI.getAllStages();
-        setStages(stagesData);
-      } catch (err) {
-        console.error("Erreur lors du chargement des fiches d'évaluation:", err);
-        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des fiches d'évaluation.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
+    fetchFichesEvaluation();
   }, []);
-
+  
+  useEffect(() => {
+    if (location.state?.refresh) {
+      fetchFichesEvaluation();
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+  
   const toggleFilterDropdown = () => {
     setShowFilterDropdown(prev => !prev);
   };
@@ -205,24 +296,22 @@ export default function ListeFichesEvaluation() {
       const searchLower = filtreSearch.toLowerCase();
       filteredFiches = filteredFiches.filter(fiche => 
         fiche.nomPrenomStagiaire?.toLowerCase().includes(searchLower) ||
-        fiche.formationStagiaire?.toLowerCase().includes(searchLower) ||
         fiche.themeStage?.toLowerCase().includes(searchLower) ||
-        fiche.structureAccueil?.toLowerCase().includes(searchLower) ||
-        stages.find(s => s.id === fiche.stageId)?.themeStage?.toLowerCase().includes(searchLower)
+        fiche.formationStagiaire?.toLowerCase().includes(searchLower) ||
+        fiche.structureAccueil?.toLowerCase().includes(searchLower)
       );
     }
     
-    if (filtreScore === 'excellent') {
-      filteredFiches = filteredFiches.filter(fiche => fiche.scoreMoyen >= 3);
-    } else if (filtreScore === 'bon') {
-      filteredFiches = filteredFiches.filter(fiche => fiche.scoreMoyen >= 2 && fiche.scoreMoyen < 3);
-    } else if (filtreScore === 'faible') {
-      filteredFiches = filteredFiches.filter(fiche => fiche.scoreMoyen < 2);
+    if (filtreValidation === 'valides') {
+      filteredFiches = filteredFiches.filter(fiche => fiche.estValide);
+    } else if (filtreValidation === 'non-valides') {
+      filteredFiches = filteredFiches.filter(fiche => !fiche.estValide);
     }
     
     return filteredFiches;
-  }, [fichesEvaluation, filtreSearch, filtreScore, stages]);
+  }, [fichesEvaluation, filtreSearch, filtreValidation]);
 
+  // Regrouper les fiches par stageId
   const fichesGroupeesByStage = useMemo(() => {
     const groupedFiches = {};
     
@@ -236,26 +325,27 @@ export default function ListeFichesEvaluation() {
     return groupedFiches;
   }, [fichesFiltrees]);
 
+  // Trouver le stage correspondant par ID
   const findStage = (stageId) => {
     return stages.find(s => s.id === stageId);
   };
-
+  
   if (loading) {
     return (
-      <EncadreurLayout defaultActivePage="fiches-evaluation">
+      <MembreDirectionLayout defaultActivePage="fiches-evaluation1">
         <div className="flex flex-col items-center justify-center h-64">
           <div className="h-10 w-10 border-4 border-t-green-500 border-gray-200 rounded-full animate-spin mb-4"></div>
           <p className="text-gray-600">Chargement des fiches d'évaluation...</p>
         </div>
-      </EncadreurLayout>
+      </MembreDirectionLayout>
     );
   }
 
   return (
-    <EncadreurLayout defaultActivePage="fiches-evaluation">
+    <MembreDirectionLayout defaultActivePage="fiches-evaluation1">
       <div className="pb-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Fiches d'Évaluation</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Fiches d'Évaluation des Stagiaires</h1>
         </div>
         
         {error && (
@@ -277,8 +367,8 @@ export default function ListeFichesEvaluation() {
           
           <div className="flex items-center">
             <FilterDropdown 
-              value={filtreScore}
-              onChange={setFiltreScore}
+              value={filtreValidation}
+              onChange={setFiltreValidation}
               isOpen={showFilterDropdown}
               toggleOpen={toggleFilterDropdown}
             />
@@ -291,17 +381,18 @@ export default function ListeFichesEvaluation() {
               <StageGroupCard 
                 key={stageId} 
                 stage={findStage(parseInt(stageId))} 
-                fiches={fiches} 
+                fiches={fiches}
+                refreshFiches={fetchFichesEvaluation}
               />
             ))
           ) : (
             <EmptyState 
               noFiches={fichesEvaluation.length === 0} 
-              hasSearch={filtreSearch.length > 0 || filtreScore !== 'tous'} 
+              hasSearch={filtreSearch.length > 0 || filtreValidation !== 'tous'} 
             />
           )}
         </div>
       </div>
-    </EncadreurLayout>
+    </MembreDirectionLayout>
   );
 }

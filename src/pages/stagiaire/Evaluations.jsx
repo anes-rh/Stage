@@ -22,6 +22,7 @@ export default function Evaluations() {
       try {
         setLoading(true);
         
+        // Récupérer l'utilisateur stagiaire actuel
         const stagiaireData = await stagiaireAPI.getCurrentUser();
         if (!stagiaireData || typeof stagiaireData !== 'object') {
           setError("Impossible de récupérer les informations du stagiaire.");
@@ -36,35 +37,30 @@ export default function Evaluations() {
           return;
         }
         
+        // Récupérer la fiche d'évaluation demandée
         const ficheData = await ficheEvaluationEncadreurAPI.getFicheEvaluationEncadreur(id);
         
-        if (!stagiaireData.stageId) {
-          setError("Votre compte n'est pas associé à un stage valide.");
-          setAuthorized(false);
-          return;
-        }
-
-        const ficheStageId = ficheData.stageId || ficheData.StageId;
-        if (!ficheStageId) {
-          setError("La fiche d'évaluation n'est pas associée à un stage valide.");
-          setAuthorized(false);
-          return;
-        }
-
-        if (ficheStageId !== stagiaireData.stageId) {
-          setError("Vous n'êtes pas autorisé à accéder à cette fiche d'évaluation.");
-          setAuthorized(false);
-          return;
+        // Modification ici : autoriser l'accès si la fiche n'a pas de stagiaireId défini
+        // ou si le stagiaireId correspond à l'ID du stagiaire connecté
+        if (!ficheData.stagiaireId) {
+          ficheData.stagiaireId = stagiaireData.id;
+          ficheData.nomPrenomStagiaireEvaluateur = `${stagiaireData.nom} ${stagiaireData.prenom}`;
         }
         
-        const stageData = await stageAPI.getStage(ficheStageId);
-        setStage(stageData);
+        // Si la fiche n'a pas encore de stagiaireId, l'attribuer au stagiaire actuel
+        if (!ficheData.stagiaireId) {
+          ficheData.stagiaireId = stagiaireData.id;
+          ficheData.nomPrenomStagiaireEvaluateur = `${stagiaireData.nom} ${stagiaireData.prenom}`;
+        }
+        
+        // Si la fiche a un stageId, récupérer les informations du stage
+        if (ficheData.stageId) {
+          const stageData = await stageAPI.getStage(ficheData.stageId);
+          setStage(stageData);
+        }
         
         setAuthorized(true);
-        setFiche({
-          ...ficheData,
-          nomPrenomStagiaireEvaluateur: stageData.stagiaireGroup
-        });
+        setFiche(ficheData);
       } catch (err) {
         setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement.");
       } finally {
@@ -120,6 +116,7 @@ export default function Evaluations() {
         demontreInteretRecherche: fiche.demontreInteretRecherche,
         observations: fiche.observations || '',
         nomPrenomStagiaireEvaluateur: fiche.nomPrenomStagiaireEvaluateur,
+        stagiaireId: fiche.stagiaireId, // Ajout de stagiaireId dans les données à mettre à jour
       };
       
       await ficheEvaluationEncadreurAPI.updateFicheEvaluationEncadreur(id, updateData);
@@ -303,7 +300,7 @@ export default function Evaluations() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-4">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <h1 className="text-xl font-bold text-gray-800">Fiche d'Évaluation de l'Encadreur</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Évaluation par le stagiaire</p>
+          <p className="text-gray-500 text-sm mt-0.5">Votre évaluation personnelle de l'encadreur</p>
         </div>
         
         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-200">
@@ -392,10 +389,9 @@ export default function Evaluations() {
               <input
                 type="text"
                 value={fiche.nomPrenomStagiaireEvaluateur || ''}
-                disabled={true}
+                readOnly
                 className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-50 focus:ring-1 focus:ring-green-500 focus:border-green-500"
                 placeholder="Nom et prénom du stagiaire évaluateur"
-                required
               />
             </div>
           </div>

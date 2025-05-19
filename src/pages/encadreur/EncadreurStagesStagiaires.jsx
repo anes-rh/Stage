@@ -8,6 +8,7 @@ import { themesAPI } from '../../utils/ThemeApi';
 import { stagiaireAPI } from '../../utils/stagiaireAPI';
 import { departementApi } from '../../services/departementApi';
 import { fichePointageAPI } from '../../utils/fichePointageAPI';
+import { demandeDepotMemoireAPI } from '../../utils/demandeDepotMemoireAPI';
 
 export default function EncadreurStagesStagiaires() {
   const [filtreStatus, setFiltreStatus] = useState('tous');
@@ -24,6 +25,9 @@ export default function EncadreurStagesStagiaires() {
   const [domaines, setDomaines] = useState([]);
   const [themes, setThemes] = useState([]);
   const [fichesPointage, setFichesPointage] = useState([]);
+  const [demandesDepotMemoire, setDemandesDepotMemoire] = useState([]);
+  const [creatingDemande, setCreatingDemande] = useState(null); 
+  const [showSuccessMessage, setShowSuccessMessage] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,32 +36,57 @@ export default function EncadreurStagesStagiaires() {
         const userData = await encadreurAPI.getCurrentUser();
         setCurrentUser(userData);
         
-        const [stagesData, departmentsData, domainsData, themesData, stagiairesData, fichesPointageData] = await Promise.all([
+        const [stagesData, departmentsData, domainsData, themesData, stagiairesData, fichesPointageData, demandesDepotMemoireData] = await Promise.all([
           stageAPI.getStagesByEncadreur(userData.id),
           departementApi.getAllDepartements(),
           departementApi.getAllDomaines(),
           themesAPI.getAllThemes(),
           stagiaireAPI.getAllStagiaires(),
-          fichePointageAPI.getFichesPointageByEncadreur(userData.id)
+          fichePointageAPI.getFichesPointageByEncadreur(userData.id),
+          demandeDepotMemoireAPI.getDemandesDepotMemoireByEncadreur(userData.id)
         ]);
 
         setStages(stagesData);
-        setDepartements(departmentsData);
-        setDomaines(domainsData);
-        setThemes(themesData);
-        setStagiaires(stagiairesData);
-        setFichesPointage(fichesPointageData);
-      } catch (err) {
-        console.error("Erreur lors du chargement des données:", err);
-        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des données.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    setDepartements(departmentsData);
+    setDomaines(domainsData);
+    setThemes(themesData);
+    setStagiaires(stagiairesData);
+    setFichesPointage(fichesPointageData);
+    setDemandesDepotMemoire(demandesDepotMemoireData);
+  } catch (err) {
+    console.error("Erreur lors du chargement des données:", err);
+    setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des données.");
+  } finally {
+    setLoading(false);
+  }
+};
     
     fetchData();
   }, []);
 
+  const creerDemandeDepotMemoire = async (stage) => {
+    try {
+      setCreatingDemande(stage.id);
+      const demandeData = {
+        stageId: stage.id,
+        encadreurId: currentUser.id
+      };
+      await demandeDepotMemoireAPI.createDemandeDepotMemoire(demandeData);
+      const updatedDemandes = await demandeDepotMemoireAPI.getDemandesDepotMemoireByEncadreur(currentUser.id);
+      setDemandesDepotMemoire(updatedDemandes);
+      
+      setShowSuccessMessage(`Demande de dépôt de mémoire créée avec succès pour le stage #${stage.id}`);
+      setTimeout(() => setShowSuccessMessage(''), 5000);
+    } catch (error) {
+      console.error('Erreur lors de la création de la demande:', error);
+      setError(typeof error === 'string' ? error : "Erreur lors de la création de la demande de dépôt de mémoire");
+    } finally {
+      setCreatingDemande(null);
+    }
+  };
+  const hasDemandeDepotMemoire = (stageId) => {
+    return demandesDepotMemoire.some(demande => demande.stageId === stageId);
+  };
   const stagesEnrichis = stages.map(stage => {
     const departementComplet = departements.find(d => d.id === stage.departementId) || { nom: "Non assigné" };
     const domaineComplet = domaines.find(d => d.id === stage.domaineId) || { nom: "Non assigné" };
@@ -179,10 +208,52 @@ export default function EncadreurStagesStagiaires() {
   };
 
   const renderStageDetails = (stage) => {
+    const demandeExiste = hasDemandeDepotMemoire(stage.id);
+    const isCreating = creatingDemande === stage.id;
+    
     return (
       <div className="p-6">
         <div>
-          <h3 className="text-lg font-medium text-gray-800 mb-3">Stagiaires et Fiches de Pointage</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-800">Stagiaires et Fiches</h3>
+            
+            {/* Bouton pour créer une demande de dépôt de mémoire */}
+            <div className="flex items-center space-x-3">
+              {!demandeExiste ? (
+                <button
+                  onClick={() => creerDemandeDepotMemoire(stage)}
+                  disabled={isCreating}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isCreating
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500'
+                  }`}
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                      </div>
+                      Création...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Créer demande de dépôt
+                    </>
+                  )}
+                </button>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-md">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Demande créée
+                </span>
+              )}
+            </div>
+          </div>
+          
           {stage.stagiaires && stage.stagiaires.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -191,7 +262,7 @@ export default function EncadreurStagesStagiaires() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Établissement</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan="2">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -244,7 +315,15 @@ export default function EncadreurStagesStagiaires() {
       </div>
     );
   };
-
+  {showSuccessMessage && (
+    <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start">
+      <CheckCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+      <p>{showSuccessMessage}</p>
+      <button className="ml-auto text-green-700 hover:text-green-900" onClick={() => setShowSuccessMessage('')}>
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )}
   if (loading) {
     return (
       <EncadreurLayout defaultActivePage="stages">

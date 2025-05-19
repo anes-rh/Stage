@@ -63,36 +63,38 @@ export const conventionAPI = {
       }
     }
   },
-  accepterConvention: async (id, cheminFichier = null) => {
-  try {
-    const updateData = {
-      Status: 'Accepte'
-    };
-    if (cheminFichier) {
-      updateData.CheminFichier = cheminFichier;
+  accepterConvention: async (id, commentaire = null, cheminFichier = null) => {
+    try {
+      const updateData = {
+        Status: 'Accepte',
+        Commentaire: commentaire
+      };
+      if (cheminFichier) {
+        updateData.CheminFichier = cheminFichier;
+      }
+      const response = await api.put(`/Convention/${id}`, updateData);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur acceptation convention ${id}:`, error);
+      throw error;
     }
-    const response = await api.put(`/Convention/${id}`, updateData);
-    return response.data;
-  } catch (error) {
-    console.error(`Erreur acceptation convention ${id}:`, error);
-    throw error;
-  }
-},
-refuserConvention: async (id, cheminFichier = null) => {
-  try {
-    const updateData = {
-      Status: 'Refuse'
-    };
-    if (cheminFichier) {
-      updateData.CheminFichier = cheminFichier;
+  },
+  refuserConvention: async (id, commentaire = null, cheminFichier = null) => {
+    try {
+      const updateData = {
+        Status: 'Refuse',
+        Commentaire: commentaire
+      };
+      if (cheminFichier) {
+        updateData.CheminFichier = cheminFichier;
+      }
+      const response = await api.put(`/Convention/${id}`, updateData);
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur refus convention ${id}:`, error);
+      throw error;
     }
-    const response = await api.put(`/Convention/${id}`, updateData);
-    return response.data;
-  } catch (error) {
-    console.error(`Erreur refus convention ${id}:`, error);
-    throw error;
-  }
-},
+  },
 uploadFile: async (file) => {
   try {
     const formData = new FormData();

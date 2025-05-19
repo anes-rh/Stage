@@ -10,8 +10,6 @@ export const stagiaireAPI = {
         telephone: stagiaireData.telephone || '',
         universite: stagiaireData.universite || '',
         specialite: stagiaireData.specialite || '',
-        photoUrl: stagiaireData.photoUrl || '',
-        motDePasse: stagiaireData.motDePasse
       };
       const response = await api.post('/Stagiaires', cleanedData);
       return response.data;

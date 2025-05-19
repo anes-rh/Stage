@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Filter, ChevronDown, User, FileText, X, CheckCircle, XCircle, Clock, AlertCircle, Upload, BookOpen, Building } from 'lucide-react';
+import { Search, Filter, ChevronDown, User, FileText, X, CheckCircle, XCircle, Clock, AlertCircle, Upload, BookOpen, Building, MessageSquare } from 'lucide-react';
 import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { demandeStageAPI } from '../../utils/demandeStageAPI';
 import { membreDirectionAPI } from '../../utils/membreDirectionAPI';
@@ -16,7 +16,11 @@ export default function DemandesStage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [activeDemandeId, setActiveDemandeId] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState({});
+  const [commentaire, setCommentaire] = useState('');
+  const [showCommentaireModal, setShowCommentaireModal] = useState(false);
+  const [statusToUpdate, setStatusToUpdate] = useState(null);
   const fileInputRef = useRef(null);
+  const commentaireRef = useRef(null);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -25,10 +29,11 @@ export default function DemandesStage() {
         const userData = await membreDirectionAPI.getCurrentUser();
         setCurrentUser(userData);
         const demandes = await demandeStageAPI.getAllDemandesStage();
-        const demandesFiltrees = demandes.filter(demande => 
-          demande.membreDirection?.id === userData.id
-        );
-        setDemandesStage(demandesFiltrees);
+        //const demandesFiltrees = demandes.filter(demande => 
+         // demande.membreDirection?.id === userData.id
+        //);
+        //setDemandesStage(demandesFiltrees);
+        setDemandesStage(demandes);
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
         setError("Impossible de charger les demandes de stage. Veuillez réessayer plus tard.");
@@ -127,30 +132,66 @@ export default function DemandesStage() {
     }
   }, [selectedFile]);
 
-  const updateDemandeStatus = async (id, newStatus) => {
-    if (loadingStatus[id]) return;
+  const handleStatusChange = (id, newStatus) => {
+    setActiveDemandeId(id);
+    setStatusToUpdate(newStatus);
+    setCommentaire('');
+    setShowCommentaireModal(true);
+    
+    // Focus sur le champ de commentaire une fois qu'il est rendu
+    setTimeout(() => {
+      if (commentaireRef.current) {
+        commentaireRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const updateDemandeStatus = async () => {
+    if (loadingStatus[activeDemandeId]) return;
     
     try {
-      setLoadingStatus(prev => ({ ...prev, [id]: true }));
-      await demandeStageAPI.updateDemandeStage(id, { statut: newStatus });
+      setLoadingStatus(prev => ({ ...prev, [activeDemandeId]: true }));
+      await demandeStageAPI.updateDemandeStage(activeDemandeId, { 
+        statut: statusToUpdate,
+        commentaire: commentaire
+      });
       setDemandesStage(prevDemandes => 
         prevDemandes.map(demande => 
-          demande.id === id ? { ...demande, statut: newStatus } : demande
+          demande.id === activeDemandeId ? { 
+            ...demande, 
+            statut: statusToUpdate,
+            commentaire: commentaire
+          } : demande
         )
       );
       
-      const statusLabel = newStatus === 1 ? "acceptée" : "rejetée";
-      setSuccess(`La demande #${id} a été ${statusLabel} avec succès.`);
+      const statusLabel = statusToUpdate === 1 ? "acceptée" : "rejetée";
+      setSuccess(`La demande #${activeDemandeId} a été ${statusLabel} avec succès.`);
+      setShowCommentaireModal(false);
       
       setTimeout(() => {
         setSuccess('');
       }, 5000);
     } catch (err) {
-      console.error(`Erreur lors de la mise à jour du statut de la demande ${id}:`, err);
-      setError(`Impossible de mettre à jour le statut de la demande #${id}.`);
+      console.error(`Erreur lors de la mise à jour du statut de la demande ${activeDemandeId}:`, err);
+      setError(`Impossible de mettre à jour le statut de la demande #${activeDemandeId}.`);
     } finally {
-      setLoadingStatus(prev => ({ ...prev, [id]: false }));
+      setLoadingStatus(prev => ({ ...prev, [activeDemandeId]: false }));
+      setActiveDemandeId(null);
+      setStatusToUpdate(null);
     }
+  };
+
+  const handleCommentaireSubmit = (e) => {
+    e.preventDefault();
+    updateDemandeStatus();
+  };
+
+  const handleCancelCommentaire = () => {
+    setShowCommentaireModal(false);
+    setActiveDemandeId(null);
+    setStatusToUpdate(null);
+    setCommentaire('');
   };
 
   const deleteDemande = async (id) => {
@@ -226,31 +267,45 @@ export default function DemandesStage() {
   
   const formatStagiaires = (stagiaires) => {
     if (!stagiaires || stagiaires.length === 0) return <div className="text-sm text-gray-500">Aucun stagiaire associé</div>;
-    const getUniqueId = (universite, specialite) => `${universite || ''}__${specialite || ''}`;
+    
+    // Regrouper les stagiaires par université et spécialité
     const uniSpecGroups = {};
-    const stagiaireItems = stagiaires.map((stagiaire, index) => {
-      const uniqueId = getUniqueId(stagiaire.universite, stagiaire.specialite);
-      uniSpecGroups[uniqueId] = {
-        universite: stagiaire.universite,
-        specialite: stagiaire.specialite
-      };
-      return (
-        <div key={`stagiaire-${index}`} className="flex items-center text-sm text-gray-600 mb-2">
-          <div className="flex-shrink-0 w-6">
-            <User className="h-4 w-4 text-gray-400" />
-          </div>
-          <div>
-            <span className="font-medium">{stagiaire.prenom} {stagiaire.nom}</span>
-            {stagiaire.email && (
-              <>
-                <span className="mx-1">-</span>
-                <span className="text-gray-500 truncate">{stagiaire.email}</span>
-              </>
-            )}
-          </div>
-        </div>
-      );
+    
+    stagiaires.forEach(stagiaire => {
+      const uniqueId = `${stagiaire.universite || ''}__${stagiaire.specialite || ''}`;
+      
+      if (!uniSpecGroups[uniqueId]) {
+        uniSpecGroups[uniqueId] = {
+          universite: stagiaire.universite,
+          specialite: stagiaire.specialite,
+          stagiaires: [],
+          count: 0
+        };
+      }
+      
+      uniSpecGroups[uniqueId].stagiaires.push(stagiaire);
+      uniSpecGroups[uniqueId].count++;
     });
+    
+    // Afficher tous les stagiaires individuellement
+    const stagiaireItems = stagiaires.map((stagiaire, index) => (
+      <div key={`stagiaire-${index}`} className="flex items-center text-sm text-gray-600 mb-2">
+        <div className="flex-shrink-0 w-6">
+          <User className="h-4 w-4 text-gray-400" />
+        </div>
+        <div>
+          <span className="font-medium">{stagiaire.prenom} {stagiaire.nom}</span>
+          {stagiaire.email && (
+            <>
+              <span className="mx-1">-</span>
+              <span className="text-gray-500 truncate">{stagiaire.email}</span>
+            </>
+          )}
+        </div>
+      </div>
+    ));
+    
+    // Afficher les universités et spécialités regroupées
     const uniSpecItems = Object.values(uniSpecGroups).map((group, index) => (
       <div key={`unispec-${index}`} className="mt-3">
         {group.specialite && (
@@ -281,6 +336,7 @@ export default function DemandesStage() {
         )}
       </div>
     ));
+    
     return (
       <div>
         <div className="mb-2">{stagiaireItems}</div>
@@ -444,6 +500,20 @@ export default function DemandesStage() {
                         </button>
                       </div>
                     </div>
+                    
+                    {demande.commentaire && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-start text-sm text-gray-600">
+                          <div className="flex-shrink-0 w-6 mt-0.5">
+                            <MessageSquare className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Commentaire:</span>
+                            <p className="text-gray-600 mt-1">{demande.commentaire}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between pt-3 border-t border-gray-100">
                     <span className="text-xs text-gray-500">
@@ -455,14 +525,14 @@ export default function DemandesStage() {
                           <button 
                             disabled={loadingStatus[demande.id]}
                             className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[demande.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition-colors`}
-                            onClick={() => updateDemandeStatus(demande.id, 1)}
+                            onClick={() => handleStatusChange(demande.id, 1)}
                           >
                             {loadingStatus[demande.id] ? 'Traitement...' : 'Accepter'}
                           </button>
                           <button 
                             disabled={loadingStatus[demande.id]}
                             className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[demande.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-700 hover:bg-red-100'} transition-colors`}
-                            onClick={() => updateDemandeStatus(demande.id, 2)}
+                            onClick={() => handleStatusChange(demande.id, 2)}
                           >
                             {loadingStatus[demande.id] ? 'Traitement...' : 'Rejeter'}
                           </button>
@@ -490,6 +560,56 @@ export default function DemandesStage() {
           </div>
         )}
       </div>
+      
+      {/* Modal pour ajouter un commentaire lors du changement de statut */}
+      {showCommentaireModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 m-4">
+            <form onSubmit={handleCommentaireSubmit}>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                {statusToUpdate === 1 ? "Accepter" : "Rejeter"} la demande #{activeDemandeId}
+              </h3>
+              <div className="mb-4">
+                <label htmlFor="commentaire" className="block text-sm font-medium text-gray-700 mb-1">
+                  Commentaire {statusToUpdate === 2 ? "(obligatoire)" : "(optionnel)"}
+                </label>
+                <textarea
+                  id="commentaire"
+                  ref={commentaireRef}
+                  value={commentaire}
+                  onChange={(e) => setCommentaire(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-300"
+                  rows="4"
+                  placeholder={statusToUpdate === 1 ? "Commentaire optionnel pour l'acceptation..." : "Veuillez préciser la raison du refus..."}
+                  required={statusToUpdate === 2}
+                ></textarea>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCancelCommentaire}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={statusToUpdate === 2 && !commentaire.trim()}
+                  className={`px-4 py-2 rounded-md text-white ${
+                    statusToUpdate === 1 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-red-600 hover:bg-red-700'
+                  } transition-colors ${
+                    (statusToUpdate === 2 && !commentaire.trim()) ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {statusToUpdate === 1 ? "Accepter" : "Rejeter"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MembreDirectionLayout>
   );
 }

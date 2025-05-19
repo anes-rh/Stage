@@ -8,8 +8,6 @@ export const chefdepartementAPI = {
         email: chefDepartementData.email,
         username: chefDepartementData.username,
         telephone: chefDepartementData.telephone || '',
-        photoUrl: chefDepartementData.photoUrl || '',
-        motDePasse: chefDepartementData.motDePasse,
         departementId: chefDepartementData.departementId
       };
       console.log('Données envoyées au backend pour chef département:', JSON.stringify(cleanedData, null, 2));
@@ -118,6 +116,7 @@ export const chefdepartementAPI = {
         username: chefDepartement.username || chefDepartement.email,
         telephone: chefDepartement.telephone || '',
         photoUrl: chefDepartement.photoUrl || '',
+        fonction: chefDepartement.fonction,
         departementId: chefDepartement.departementId || (chefDepartement.departement ? chefDepartement.departement.id : null),
         estActif: !chefDepartement.estActif
       };
