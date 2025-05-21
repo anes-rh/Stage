@@ -199,11 +199,13 @@ export default function Stages() {
         nom: "Non assigné"
       };
       
-      const domaineComplet = domaines.find(d => d.id === stage.domaineId) || {
-        nom: "Non assigné"
-      };
-      
       const themeAssocie = themes.find(t => t.stageId === stage.id);
+
+    const domaineComplet = themeAssocie && themeAssocie.domaineId 
+      ? domaines.find(d => d.id === themeAssocie.domaineId)
+      : stage.domaineId
+        ? domaines.find(d => d.id === stage.domaineId)
+        : { nom: "Non assigné" };
 
       const stagiairesEnrichis = Array.isArray(stage.stagiaires) 
         ? stage.stagiaires.map(stagiaireBasic => {
@@ -526,7 +528,7 @@ export default function Stages() {
                     <div className="flex space-x-2">
                       {(stage.statut === 'EnCours' || stage.statut === 1) && (
                         <button 
-                          className="px-4 py-2 text-sm font-medium rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                          className="px-4 py-2 text-sm font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
                           onClick={() => handleTerminerStage(stage.id)}
                         >
                           Marquer comme terminé

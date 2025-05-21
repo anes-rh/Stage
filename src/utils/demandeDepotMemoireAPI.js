@@ -23,7 +23,6 @@ export const demandeDepotMemoireAPI = {
 
   createDemandeDepotMemoire: async (demandeData) => {
     try {
-      console.log('Données envoyées pour création demande:', JSON.stringify(demandeData, null, 2));
       const response = await api.post('/DemandeDepotMemoire', demandeData);
       return response.data;
     } catch (error) {
@@ -44,7 +43,6 @@ export const demandeDepotMemoireAPI = {
 
   updateDemandeDepotMemoire: async (id, updateData) => {
     try {
-      console.log('Données envoyées pour mise à jour:', JSON.stringify(updateData, null, 2));
       const response = await api.put(`/DemandeDepotMemoire/${id}`, updateData);
       return response.data;
     } catch (error) {
@@ -58,18 +56,17 @@ export const demandeDepotMemoireAPI = {
       } else if (error.request) {
         throw "Le serveur n'a pas répondu. Vérifiez que le backend est en cours d'exécution.";
       } else {
-        throw error.message || "Une erreur est survenue lors de la mise à jour";
+        throw error.message || "Une erreur est survenue lors de la mise à jour de la demande";
       }
     }
   },
 
-  validerDemandeDepotMemoire: async (id, validationData) => {
+  changeStatut: async (id, statutData) => {
     try {
-      console.log('Données envoyées pour validation:', JSON.stringify(validationData, null, 2));
-      const response = await api.post(`/DemandeDepotMemoire/Valider/${id}`, validationData);
+      const response = await api.post(`/DemandeDepotMemoire/${id}/ChangeStatut`, statutData);
       return response.data;
     } catch (error) {
-      console.error(`Erreur validation demande de dépôt de mémoire ${id}:`, error);
+      console.error(`Erreur changement statut demande de dépôt de mémoire ${id}:`, error);
       if (error.response) {
         console.error('Données d\'erreur complètes:', error.response.data);
         console.error('Statut HTTP:', error.response.status);
@@ -79,7 +76,7 @@ export const demandeDepotMemoireAPI = {
       } else if (error.request) {
         throw "Le serveur n'a pas répondu. Vérifiez que le backend est en cours d'exécution.";
       } else {
-        throw error.message || "Une erreur est survenue lors de la validation";
+        throw error.message || "Une erreur est survenue lors du changement de statut";
       }
     }
   },
@@ -90,17 +87,7 @@ export const demandeDepotMemoireAPI = {
       return response.data;
     } catch (error) {
       console.error(`Erreur suppression demande de dépôt de mémoire ${id}:`, error);
-      if (error.response) {
-        console.error('Données d\'erreur complètes:', error.response.data);
-        console.error('Statut HTTP:', error.response.status);
-        throw typeof error.response.data === 'string' 
-          ? error.response.data 
-          : (error.response.data.message || JSON.stringify(error.response.data));
-      } else if (error.request) {
-        throw "Le serveur n'a pas répondu. Vérifiez que le backend est en cours d'exécution.";
-      } else {
-        throw error.message || "Une erreur est survenue lors de la suppression";
-      }
+      throw error;
     }
   },
 

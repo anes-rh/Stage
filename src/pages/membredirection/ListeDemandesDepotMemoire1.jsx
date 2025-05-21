@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, AlertCircle, X, FileText, Calendar, User, CheckCircle, XCircle } from 'lucide-react';
+import { Search, AlertCircle, X, FileText, Calendar, User, Filter, ChevronDown, Clock, CheckCircle, XCircle } from 'lucide-react';
 import MembreDirectionLayout from '../../components/layout/MembreDirectionLayout';
 import { demandeDepotMemoireAPI } from '../../utils/demandeDepotMemoireAPI';
+import { membreDirectionAPI } from '../../utils/membreDirectionAPI';
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Date inconnue';
@@ -10,52 +11,49 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('fr-FR', options);
 };
 
-const getStatutColor = (statut) => {
-  switch (statut) {
-    case 'EnAttente':
+const getStatutColorClass = (statut) => {
+  const statutValue = typeof statut === 'number' ? statut : 
+                     (statut === 'EnAttente' ? 0 : 
+                      statut === 'Valide' ? 1 : 
+                      statut === 'Rejete' ? 2 : 
+                      statut === 'Archive' ? 3 : -1);
+  
+  switch(statutValue) {
+    case 0:
       return 'bg-yellow-100 text-yellow-800';
-    case 'Valide':
+    case 1:
       return 'bg-green-100 text-green-800';
-    case 'Rejete':
+    case 2:
       return 'bg-red-100 text-red-800';
-    case 'Archive':
+    case 3:
       return 'bg-gray-100 text-gray-800';
     default:
       return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getStatutIcon = (statut) => {
-  switch (statut) {
-    case 'EnAttente':
-      return <span className="h-3 w-3 bg-yellow-500 rounded-full mr-1" />;
-    case 'Valide':
-      return <CheckCircle className="h-3 w-3 mr-1" />;
-    case 'Rejete':
-      return <XCircle className="h-3 w-3 mr-1" />;
-    case 'Archive':
-      return <FileText className="h-3 w-3 mr-1" />;
-    default:
-      return <span className="h-3 w-3 bg-gray-500 rounded-full mr-1" />;
   }
 };
 
 const getStatutLabel = (statut) => {
-  switch (statut) {
-    case 'EnAttente':
+  const statutValue = typeof statut === 'number' ? statut : 
+                     (statut === 'EnAttente' ? 0 : 
+                      statut === 'Valide' ? 1 : 
+                      statut === 'Rejete' ? 2 : 
+                      statut === 'Archive' ? 3 : -1);
+  
+  switch(statutValue) {
+    case 0:
       return 'En attente';
-    case 'Valide':
+    case 1:
       return 'Validé';
-    case 'Rejete':
+    case 2:
       return 'Rejeté';
-    case 'Archive':
+    case 3:
       return 'Archivé';
     default:
-      return statut;
+      return 'Inconnu';
   }
 };
 
-const DemandeCard = ({ demande }) => (
+const DemandeCard = ({ demande, loadingStatus, handleStatusChange }) => (
   <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
     <div className="p-4">
       <div className="flex justify-between items-start mb-3">
@@ -66,43 +64,57 @@ const DemandeCard = ({ demande }) => (
             <h4 className="text-sm font-medium text-gray-700">{demande.nomPrenomEtudiants}</h4>
           </div>
         </div>
-        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatutColor(demande.statut)}`}>
-          {getStatutIcon(demande.statut)}
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatutColorClass(demande.statut)}`}>
+          <Clock className="h-3 w-3 mr-1" />
           {getStatutLabel(demande.statut)}
         </span>
       </div>
-
+      
       <div className="mb-3">
         <h5 className="text-sm font-medium text-gray-700 mb-1">Thème</h5>
         <p className="text-sm text-gray-600">{demande.nomTheme}</p>
       </div>
 
       <div className="mb-3">
-        <h5 className="text-sm font-medium text-gray-700 mb-1">Encadreur</h5>
-        <p className="text-sm text-gray-600">{demande.nomPrenomEncadreur}</p>
+        <h5 className="text-sm font-medium text-gray-700 mb-1">Période de stage</h5>
+        <p className="text-sm text-gray-600">{formatDate(demande.dateDebutStage)} - {formatDate(demande.dateFinStage)}</p>
       </div>
 
       <div className="flex flex-wrap mb-3 text-sm">
-        <div className="w-full mb-2">
+        <div className="w-full">
           <div className="flex items-center text-gray-600">
             <Calendar className="h-3 w-3 text-gray-400 mr-2" />
             <span>Demande du {formatDate(demande.dateDemande)}</span>
           </div>
         </div>
-        <div className="w-full">
-          <div className="flex items-center text-gray-600">
-            <Calendar className="h-3 w-3 text-gray-400 mr-2" />
-            <span className="truncate">
-              Stage: {formatDate(demande.dateDebutStage)} - {formatDate(demande.dateFinStage)}
-            </span>
-          </div>
-        </div>
       </div>
-
-      <div className="flex justify-end pt-2 border-t border-gray-100">
+      
+      <div className="flex justify-between pt-2 border-t border-gray-100">
+        <div className="flex space-x-2">
+          {demande.statut === 0 && (
+            <>
+              <button 
+                disabled={loadingStatus[demande.id]}
+                className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[demande.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition-colors flex items-center`}
+                onClick={() => handleStatusChange(demande.id, 1)}
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                {loadingStatus[demande.id] ? 'Traitement...' : 'Accepter'}
+              </button>
+              <button 
+                disabled={loadingStatus[demande.id]}
+                className={`px-3 py-1 text-xs font-medium rounded ${loadingStatus[demande.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-700 hover:bg-red-100'} transition-colors flex items-center`}
+                onClick={() => handleStatusChange(demande.id, 2)}
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                {loadingStatus[demande.id] ? 'Traitement...' : 'Refuser'}
+              </button>
+            </>
+          )}
+        </div>
         <Link 
-          to={`/membredirection/Demandes-Depot-Memoire1/${demande.id}`}
-          className="flex items-center px-3 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+          to={`/membredirection/demandes-depot-memoire1/${demande.id}`}
+          className="flex items-center px-3 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
         >
           <FileText className="h-3 w-3 mr-1" />
           Voir détails
@@ -112,15 +124,15 @@ const DemandeCard = ({ demande }) => (
   </div>
 );
 
-const EmptyState = ({ noDemandes, hasSearch }) => (
+const EmptyState = ({ noDemandesDepotMemoire, hasSearch }) => (
   <div className="bg-white rounded-lg shadow-sm p-8 text-center">
     <div className="text-gray-400 mb-3">
       <FileText className="h-12 w-12 mx-auto" />
     </div>
-    <h3 className="text-lg font-medium text-gray-800 mb-1">Aucune demande de dépôt trouvée</h3>
+    <h3 className="text-lg font-medium text-gray-800 mb-1">Aucune demande de dépôt de mémoire trouvée</h3>
     <p className="text-gray-600">
-      {noDemandes 
-        ? "Il n'y a pas encore de demandes de dépôt de mémoire."
+      {noDemandesDepotMemoire 
+        ? "Aucune demande de dépôt de mémoire n'a été créée."
         : "Essayez de modifier vos critères de recherche."
       }
     </p>
@@ -129,11 +141,11 @@ const EmptyState = ({ noDemandes, hasSearch }) => (
 
 const SearchBar = ({ filtreSearch, setFiltreSearch }) => (
   <div className="relative group">
-    <Search className="absolute left-3 top-2.5 text-gray-400 h-4 w-4 group-hover:text-blue-500 transition-colors" />
+    <Search className="absolute left-3 top-2.5 text-gray-400 h-4 w-4 group-hover:text-green-500 transition-colors" />
     <input
       type="text"
       placeholder="Rechercher une demande..."
-      className="pl-10 pr-4 py-2 rounded-full bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white border border-transparent focus:border-blue-300 w-64 transition-all"
+      className="pl-10 pr-4 py-2 rounded-full bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white border border-transparent focus:border-green-300 w-64 transition-all"
       value={filtreSearch}
       onChange={(e) => setFiltreSearch(e.target.value)}
     />
@@ -149,36 +161,92 @@ const SearchBar = ({ filtreSearch, setFiltreSearch }) => (
   </div>
 );
 
-const StatutFilter = ({ selectedStatut, setSelectedStatut }) => (
-  <select
-    value={selectedStatut}
-    onChange={(e) => setSelectedStatut(e.target.value)}
-    className="px-3 py-2 rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white border border-transparent focus:border-blue-300 transition-all"
-  >
-    <option value="">Tous les statuts</option>
-    <option value="EnAttente">En attente</option>
-    <option value="Valide">Validé</option>
-    <option value="Rejete">Rejeté</option>
-    <option value="Archive">Archivé</option>
-  </select>
+const FilterDropdown = ({ value, onChange, isOpen, toggleOpen }) => (
+  <div className="relative">
+    <button 
+      onClick={toggleOpen}
+      className="flex items-center px-4 py-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+    >
+      <Filter className="h-4 w-4 mr-2" />
+      <span>Filtrer par statut</span>
+      <ChevronDown className="h-4 w-4 ml-2" />
+    </button>
+
+    {isOpen && (
+      <div className="absolute z-10 mt-1 w-48 bg-white rounded-md shadow-lg py-1 border border-gray-200">
+        <button 
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'Tous' ? 'bg-green-50 text-green-700' : ''}`}
+          onClick={() => {
+            onChange('Tous');
+            toggleOpen();
+          }}
+        >
+          Tous
+        </button>
+        <button 
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'EnAttente' ? 'bg-green-50 text-green-700' : ''}`}
+          onClick={() => {
+            onChange('EnAttente');
+            toggleOpen();
+          }}
+        >
+          En attente
+        </button>
+        <button 
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'Valide' ? 'bg-green-50 text-green-700' : ''}`}
+          onClick={() => {
+            onChange('Valide');
+            toggleOpen();
+          }}
+        >
+          Validé
+        </button>
+        <button 
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'Rejete' ? 'bg-green-50 text-green-700' : ''}`}
+          onClick={() => {
+            onChange('Rejete');
+            toggleOpen();
+          }}
+        >
+          Rejeté
+        </button>
+        <button 
+          className={`block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 ${value === 'Archive' ? 'bg-green-50 text-green-700' : ''}`}
+          onClick={() => {
+            onChange('Archive');
+            toggleOpen();
+          }}
+        >
+          Archivé
+        </button>
+      </div>
+    )}
+  </div>
 );
 
 export default function ListeDemandesDepotMemoire1() {
-  const [demandes, setDemandes] = useState([]);
+  const [demandesDepotMemoire, setDemandesDepotMemoire] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [filtreSearch, setFiltreSearch] = useState('');
-  const [selectedStatut, setSelectedStatut] = useState('');
+  const [filtreStatut, setFiltreStatut] = useState('Tous');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const userData = await membreDirectionAPI.getCurrentUser();
+        setCurrentUser(userData);
+        
         const demandesData = await demandeDepotMemoireAPI.getAllDemandesDepotMemoire();
-        setDemandes(demandesData);
+        setDemandesDepotMemoire(demandesData);
       } catch (err) {
-        console.error("Erreur lors du chargement des demandes:", err);
-        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des demandes.");
+        console.error("Erreur lors du chargement des demandes de dépôt de mémoire:", err);
+        setError(typeof err === 'string' ? err : "Une erreur est survenue lors du chargement des demandes de dépôt de mémoire.");
       } finally {
         setLoading(false);
       }
@@ -187,41 +255,92 @@ export default function ListeDemandesDepotMemoire1() {
     fetchData();
   }, []);
 
-  const demandesFiltrees = useMemo(() => {
-    let filteredDemandes = demandes;
+  const toggleFilterDropdown = () => {
+    setShowFilterDropdown(prev => !prev);
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    if (loadingStatus[id]) return;
     
-    if (selectedStatut) {
-      filteredDemandes = filteredDemandes.filter(demande => demande.statut === selectedStatut);
+    try {
+      setLoadingStatus(prev => ({ ...prev, [id]: true }));
+      
+      const statutData = {
+        Statut: newStatus,
+        DateValidation: new Date().toISOString(),
+        MembreDirectionId: currentUser.id
+      };
+      
+      await demandeDepotMemoireAPI.changeStatut(id, statutData);
+      
+      setDemandesDepotMemoire(prevDemandes => 
+        prevDemandes.map(demande => 
+          demande.id === id ? { 
+            ...demande, 
+            statut: newStatus,
+            dateValidation: new Date().toISOString(),
+            membreDirectionId: currentUser.id
+          } : demande
+        )
+      );
+      
+      const statusLabel = newStatus === 1 ? "acceptée" : "rejetée";
+      setSuccess(`La demande #${id} a été ${statusLabel} avec succès.`);
+      
+      setTimeout(() => {
+        setSuccess('');
+      }, 5000);
+    } catch (err) {
+      console.error(`Erreur lors de la mise à jour du statut de la demande ${id}:`, err);
+      setError(`Impossible de mettre à jour le statut de la demande #${id}.`);
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [id]: false }));
     }
+  };
+
+  const demandesFiltrees = useMemo(() => {
+    let filteredDemandes = [...demandesDepotMemoire];
     
     if (filtreSearch) {
       const searchLower = filtreSearch.toLowerCase();
       filteredDemandes = filteredDemandes.filter(demande => 
         demande.nomPrenomEtudiants?.toLowerCase().includes(searchLower) ||
         demande.nomTheme?.toLowerCase().includes(searchLower) ||
-        demande.nomPrenomEncadreur?.toLowerCase().includes(searchLower)
+        String(demande.id).includes(searchLower)
       );
     }
     
+    if (filtreStatut !== 'Tous') {
+      filteredDemandes = filteredDemandes.filter(demande => {
+        const statutEnum = demande.statut;
+        return statutEnum === filtreStatut || 
+               (typeof statutEnum === 'number' && 
+                (filtreStatut === 'EnAttente' && statutEnum === 0) ||
+                (filtreStatut === 'Valide' && statutEnum === 1) ||
+                (filtreStatut === 'Rejete' && statutEnum === 2) ||
+                (filtreStatut === 'Archive' && statutEnum === 3));
+      });
+    }
+    
     return filteredDemandes;
-  }, [demandes, filtreSearch, selectedStatut]);
+  }, [demandesDepotMemoire, filtreSearch, filtreStatut]);
 
   if (loading) {
     return (
-      <MembreDirectionLayout defaultActivePage="Demandes-Depot-Memoire1">
+      <MembreDirectionLayout defaultActivePage="demandes-depot-memoire1">
         <div className="flex flex-col items-center justify-center h-64">
-          <div className="h-10 w-10 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-600">Chargement des demandes...</p>
+          <div className="h-10 w-10 border-4 border-t-green-500 border-gray-200 rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-600">Chargement des demandes de dépôt de mémoire...</p>
         </div>
       </MembreDirectionLayout>
     );
   }
 
   return (
-    <MembreDirectionLayout defaultActivePage="Demandes-Depot-Memoire1">
+    <MembreDirectionLayout defaultActivePage="demandes-depot-memoire1">
       <div className="pb-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Toutes les Demandes de Dépôt de Mémoire</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Demandes de Dépôt de Mémoire</h1>
         </div>
         
         {error && (
@@ -237,19 +356,48 @@ export default function ListeDemandesDepotMemoire1() {
             </button>
           </div>
         )}
+
+        {success && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start">
+            <CheckCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <p>{success}</p>
+            <button 
+              className="ml-auto text-green-700 hover:text-green-900" 
+              onClick={() => setSuccess('')}
+              aria-label="Fermer le message de succès"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
           <SearchBar filtreSearch={filtreSearch} setFiltreSearch={setFiltreSearch} />
-          <StatutFilter selectedStatut={selectedStatut} setSelectedStatut={setSelectedStatut} />
+          
+          <div className="flex items-center">
+            <FilterDropdown 
+              value={filtreStatut}
+              onChange={setFiltreStatut}
+              isOpen={showFilterDropdown}
+              toggleOpen={toggleFilterDropdown}
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
           {demandesFiltrees.length > 0 ? (
-            demandesFiltrees.map((demande) => <DemandeCard key={demande.id} demande={demande} />)
+            demandesFiltrees.map(demande => (
+              <DemandeCard 
+                key={demande.id} 
+                demande={demande} 
+                loadingStatus={loadingStatus}
+                handleStatusChange={handleStatusChange}
+              />
+            ))
           ) : (
             <EmptyState 
-              noDemandes={demandes.length === 0} 
-              hasSearch={filtreSearch.length > 0 || selectedStatut.length > 0} 
+              noDemandesDepotMemoire={demandesDepotMemoire.length === 0} 
+              hasSearch={filtreSearch.length > 0 || filtreStatut !== 'Tous'} 
             />
           )}
         </div>

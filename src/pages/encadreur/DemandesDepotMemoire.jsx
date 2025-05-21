@@ -65,6 +65,7 @@ export default function DemandesDepotMemoire() {
   const [demande, setDemande] = useState(null);
   const [stages, setStages] = useState([]);
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [selectedStage, setSelectedStage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -73,7 +74,7 @@ export default function DemandesDepotMemoire() {
   
   const [formData, setFormData] = useState({
     stagiaireGroup: '',
-    etudiants: ['', '', ''],
+    etudiants: [],
     themeLines: ['', '', '']
   });
 
@@ -82,26 +83,22 @@ export default function DemandesDepotMemoire() {
       try {
         setLoading(true);
         
-        // Récupérer l'utilisateur actuel
         const userData = await encadreurAPI.getCurrentUser();
         setCurrentUser(userData);
         
         if (isCreating) {
-          // Mode création : récupérer les stages de l'encadreur
           const stagesData = await stageAPI.getStagesByEncadreur(userData.id);
           setStages(stagesData);
         } else {
-          // Mode consultation : récupérer la demande existante
           const demandeData = await demandeDepotMemoireAPI.getDemandeDepotMemoire(id);
           setDemande(demandeData);
           
           if (demandeData.nomPrenomEtudiants) {
             const etudiantsArray = demandeData.nomPrenomEtudiants.split(',').map(e => e.trim());
-            const etudiants = [...etudiantsArray, ...Array(3 - etudiantsArray.length).fill('')].slice(0, 3);
             
             setFormData({
               stagiaireGroup: demandeData.stagiaireGroup || '',
-              etudiants,
+              etudiants: etudiantsArray,
               themeLines: demandeData.nomTheme ? demandeData.nomTheme.split('\n').slice(0, 3) : ['', '', '']
             });
           }
@@ -120,12 +117,25 @@ export default function DemandesDepotMemoire() {
   const handleStageChange = async (stageId) => {
     if (!stageId) {
       setSelectedStageId('');
+      setSelectedStage(null);
       return;
     }
 
     try {
       setSelectedStageId(stageId);
-      // Optionnellement, vous pouvez récupérer plus de détails sur le stage sélectionné
+      const selectedStageData = stages.find(stage => stage.id === parseInt(stageId));
+      setSelectedStage(selectedStageData);
+      
+      if (selectedStageData && selectedStageData.stagiaires) {
+        const stagiaireNames = selectedStageData.stagiaires.map(stagiaire => 
+          `${stagiaire.nom} ${stagiaire.prenom}`
+        );
+        
+        setFormData(prev => ({
+          ...prev,
+          etudiants: stagiaireNames
+        }));
+      }
     } catch (err) {
       console.error("Erreur lors de la sélection du stage:", err);
       setError("Erreur lors de la sélection du stage");
@@ -162,7 +172,6 @@ export default function DemandesDepotMemoire() {
 
         await demandeDepotMemoireAPI.createDemandeDepotMemoire(demandeData);
       } else {
-        // Mise à jour d'une demande existante
         const demandeData = {
           stagiaireGroup: formData.stagiaireGroup,
           nomPrenomEtudiants: formData.etudiants.filter(e => e.trim()).join(', '),
@@ -198,25 +207,24 @@ export default function DemandesDepotMemoire() {
   return (
     <EncadreurLayout defaultActivePage="Demandes-Depot-Memoire">
       <div className="pb-6">
-        {/* En-tête avec navigation */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <Link 
               to="/encadreur/Demandes-Depot-Memoire"
-              className="flex items-center text-gray-500 hover:text-gray-700 mr-4"
+              className="flex items-center text-gray-500 hover:text-gray-700 mr-4 transition-colors duration-200"
             >
               <ArrowLeft className="h-5 w-5 mr-1" />
               Retour à la liste
             </Link>
             <h1 className="text-2xl font-bold text-gray-800">
-              {isCreating ? 'Nouvelle demande de dépôt de mémoire' : `Demande #${demande?.id}`}
+              {isCreating ? 'Nouvelle demande de dépôt de mémoire' : ''}
             </h1>
           </div>
           
           <button 
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center px-3 py-1.5 text-sm font-medium rounded border border-green-600 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            className="flex items-center px-4 py-2 text-sm font-medium rounded-lg border border-green-600 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors duration-200 shadow-sm"
           >
             <Save className="h-4 w-4 mr-1.5" />
             <span>{saving ? 'Sauvegarde...' : 'Sauvegarder'}</span>
@@ -224,32 +232,31 @@ export default function DemandesDepotMemoire() {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start shadow-sm animate-fadeIn">
             <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
             <p>{error}</p>
           </div>
         )}
         
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start">
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start shadow-sm animate-fadeIn">
             <CheckCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
             <p>{success}</p>
           </div>
         )}
 
-        {/* Formulaire */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-white">
             <h2 className="text-lg font-semibold text-gray-800">Formulaire de demande de dépôt de mémoire</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Veuillez compléter les informations ci-dessous.
+              Veuillez compléter les informations ci-dessous pour valider le dépôt du mémoire.
             </p>
           </div>
           
           <form onSubmit={handleSubmit} className="p-6">
             <div className="mb-8 border-b pb-6">
-              <div className="text-lg font-semibold mb-4">Je soussigné(e) Mme/Mr</div>
-              <div className="flex flex-col border-b border-dotted border-gray-400 py-2">
+              <div className="text-lg font-semibold mb-4 text-green-800">Je soussigné(e) Mme/Mr</div>
+              <div className="flex flex-col border-b border-dotted border-gray-400 py-2 bg-gray-50 px-3 rounded-md">
                 <span className="text-gray-900 font-medium">
                   {currentUser?.nom} {currentUser?.prenom}
                 </span>
@@ -258,14 +265,25 @@ export default function DemandesDepotMemoire() {
             </div>
             
             <div className="mb-8">
-              <div className="text-lg font-semibold mb-4">de l'étudiant(e) en</div>
+              <div className="text-lg font-semibold mb-4 text-green-800">de l'étudiant(e) en</div>
               <div className="border-b border-dotted border-gray-400 py-2 mb-4">
-                {isCreating ? (
+                <input
+                  type="text"
+                  value={formData.stagiaireGroup}
+                  onChange={(e) => handleFormChange('stagiaireGroup', e.target.value)}
+                  className="w-full bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-green-200 px-3 py-1 rounded transition-all duration-200"
+                  placeholder="Précisez la formation de l'étudiant"
+                />
+              </div>
+              
+              {isCreating && (
+                <div className="bg-green-50 p-4 rounded-lg mb-4 border border-green-100">
+                  <div className="text-sm font-medium text-green-700 mb-2">Sélectionner un stage</div>
                   <select
                     id="stage-select"
                     value={selectedStageId}
                     onChange={(e) => handleStageChange(e.target.value)}
-                    className="w-full bg-transparent border-none focus:outline-none focus:ring-0"
+                    className="w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     required
                   >
                     <option value="">Sélectionnez un stage</option>
@@ -275,30 +293,23 @@ export default function DemandesDepotMemoire() {
                       </option>
                     ))}
                   </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.stagiaireGroup}
-                    onChange={(e) => handleFormChange('stagiaireGroup', e.target.value)}
-                    className="w-full bg-transparent border-none focus:outline-none focus:ring-0"
-                    placeholder="Précisez la formation de l'étudiant"
-                  />
-                )}
-              </div>
+                </div>
+              )}
             </div>
             
             <div className="mb-8">
-              <div className="text-lg font-semibold mb-4">désigné(s) ci-dessous</div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="text-lg font-semibold mb-4 text-green-800">désigné(s) ci-dessous</div>
+              <div className="grid grid-cols-1 gap-3">
                 {formData.etudiants.map((etudiant, index) => (
-                  <div key={index} className="border-b border-dotted border-gray-400 py-2">
-                    {index + 1}. 
+                  <div key={index} className="flex items-center border-b border-dotted border-gray-400 py-2 bg-gray-50 px-3 rounded-md">
+                    <span className="h-6 w-6 flex items-center justify-center bg-green-600 text-white rounded-full text-sm font-medium mr-3">
+                      {index + 1}
+                    </span>
                     <input
                       type="text"
                       value={etudiant}
-                      onChange={(e) => handleFormChange('etudiants', e.target.value, index)}
-                      className="ml-2 w-4/5 bg-transparent border-none focus:outline-none focus:ring-0"
-                      placeholder="Nom et prénom de l'étudiant"
+                      readOnly
+                      className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-gray-700"
                     />
                   </div>
                 ))}
@@ -306,81 +317,25 @@ export default function DemandesDepotMemoire() {
             </div>
             
             <div className="mb-8">
-              <div className="text-lg font-semibold mb-4">Ayant pour thème</div>
+              <div className="text-lg font-semibold mb-4 text-green-800">Ayant pour thème</div>
               {formData.themeLines.map((ligne, index) => (
                 <div key={index} className="border-b border-dotted border-gray-400 py-2 mt-2">
                   <input
                     type="text"
                     value={ligne}
                     onChange={(e) => handleFormChange('themeLines', e.target.value, index)}
-                    className="w-full bg-transparent border-none focus:outline-none focus:ring-0"
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-green-200 px-3 py-1 rounded transition-all duration-200"
                     placeholder="Intitulé du thème"
                   />
                 </div>
               ))}
             </div>
             
-            <div className="mb-8">
-              <div className="text-lg font-normal mb-4">
+            <div className="mb-4">
+              <div className="text-lg font-medium mb-4 bg-green-50 p-4 rounded-lg border border-green-100 text-green-800">
                 Atteste avoir validé le travail effectué et autorisé l'étudiant(e) à déposer son mémoire en vue de programmer sa soutenance
               </div>
             </div>
-
-            {!isCreating && (
-              <div className="flex justify-end space-x-3 mt-8">
-                <Link
-                  to="/encadreur/Demandes-Depot-Memoire"
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Annuler
-                </Link>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex items-center px-4 py-2 text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 rounded-lg transition-colors"
-                >
-                  {saving ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
-                      Enregistrement...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Sauvegarder les modifications
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-            
-            {isCreating && (
-              <div className="flex justify-end space-x-3 mt-8">
-                <Link
-                  to="/encadreur/Demandes-Depot-Memoire"
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Annuler
-                </Link>
-                <button
-                  type="submit"
-                  disabled={saving || !selectedStageId}
-                  className="flex items-center px-4 py-2 text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 rounded-lg transition-colors"
-                >
-                  {saving ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
-                      Création...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Enregistrer la demande
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
           </form>
         </div>
       </div>
